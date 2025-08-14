@@ -28,13 +28,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -171,7 +171,7 @@ jobs:
         echo "- **Rust Version**: $(rustc --version)" >> benchmark-report.md
 
     - name: Upload benchmark results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: benchmark-results
         path: |
@@ -181,7 +181,7 @@ jobs:
 
     - name: Comment PR with benchmark results
       if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-      uses: actions/github-script@v7
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
       with:
         script: |
           const fs = require('fs');
@@ -204,13 +204,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -262,7 +262,7 @@ jobs:
         echo "Check the logs for detailed memory usage information." >> memory-report.md
 
     - name: Upload memory profiling results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: memory-profiling
         path: |
@@ -277,13 +277,13 @@ jobs:
 
     steps:
     - name: Checkout PR branch
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -326,7 +326,7 @@ jobs:
         echo "Generated on: $(date)" >> comparison-report.md
 
     - name: Upload comparison results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: benchmark-comparison
         path: comparison-report.md
