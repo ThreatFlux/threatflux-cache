@@ -258,7 +258,7 @@ async fn test_cache_large_data_handling() {
         .unwrap();
 
     // Test with various data sizes
-    let sizes_kb = vec![1, 10, 100, 1000]; // 1KB to 1MB
+    let sizes_kb = [1, 10, 100, 1000]; // 1KB to 1MB
 
     for (i, size) in sizes_kb.iter().enumerate() {
         let key = format!("large_key_{}", i);

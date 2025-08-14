@@ -60,12 +60,12 @@ where
                 c => c,
             })
             .collect::<String>();
-        
+
         // Replace leading dots to prevent hidden files
         if result.starts_with('.') {
             result = result.replacen('.', "_", 1);
         }
-        
+
         // Clean up trailing dots and whitespace
         result.trim_matches('.').trim().to_string()
     }
@@ -79,7 +79,7 @@ where
         } else {
             sanitized_key
         };
-        
+
         self.base_path
             .join(format!("{}.{}", safe_key, self.format.extension()))
     }
@@ -345,36 +345,78 @@ mod tests {
 
         for malicious_key in malicious_keys {
             let path = backend.get_cache_file_path(malicious_key);
-            
+
             // Ensure the path is within the base directory
-            assert!(path.starts_with(&backend.base_path), 
-                   "Malicious key '{}' resulted in path outside base directory: {:?}", 
-                   malicious_key, path);
-            
+            assert!(
+                path.starts_with(&backend.base_path),
+                "Malicious key '{}' resulted in path outside base directory: {:?}",
+                malicious_key,
+                path
+            );
+
             // Ensure the filename doesn't contain path separators
             let filename = path.file_name().unwrap().to_str().unwrap();
-            assert!(!filename.contains('/') && !filename.contains('\\'),
-                   "Filename '{}' contains path separators for key '{}'", 
-                   filename, malicious_key);
+            assert!(
+                !filename.contains('/') && !filename.contains('\\'),
+                "Filename '{}' contains path separators for key '{}'",
+                filename,
+                malicious_key
+            );
         }
     }
 
     #[test]
     fn test_filename_sanitization() {
         // Test various dangerous characters
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd"), "_._etc_passwd");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file\\name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file:name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file*name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file?name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file\"name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file<name>"), "file_name_");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("file|name"), "file_name");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename(".hidden"), "_hidden");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("..."), "_");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename(""), "");
-        assert_eq!(FilesystemBackend::<String, String>::sanitize_filename("   "), "");
-        
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd"),
+            "_._etc_passwd"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file\\name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file:name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file*name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file?name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file\"name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file<name>"),
+            "file_name_"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("file|name"),
+            "file_name"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename(".hidden"),
+            "_hidden"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("..."),
+            "_"
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename(""),
+            ""
+        );
+        assert_eq!(
+            FilesystemBackend::<String, String>::sanitize_filename("   "),
+            ""
+        );
+
         // Test the most important security aspect: no path traversal
         let result = FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd");
         assert!(!result.contains('/'));

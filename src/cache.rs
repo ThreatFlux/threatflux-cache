@@ -279,7 +279,7 @@ where
         {
             let mut entries = self.entries.write().await;
             let key_entries = entries.entry(key.clone()).or_insert_with(Vec::new);
-            
+
             // For AsyncCache trait, replace existing entries rather than add
             key_entries.clear();
             key_entries.push(CacheEntry::new(key, value));

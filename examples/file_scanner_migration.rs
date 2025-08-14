@@ -52,9 +52,19 @@ type Value = serde_json::Value;
 // Adapter functions to maintain API compatibility
 pub struct FileAnalysisCacheAdapter {
     #[cfg(feature = "filesystem-backend")]
-    cache: Cache<String, Value, FileAnalysisMetadata, FilesystemBackend<String, Value, FileAnalysisMetadata>>,
+    cache: Cache<
+        String,
+        Value,
+        FileAnalysisMetadata,
+        FilesystemBackend<String, Value, FileAnalysisMetadata>,
+    >,
     #[cfg(not(feature = "filesystem-backend"))]
-    cache: Cache<String, Value, FileAnalysisMetadata, MemoryBackend<String, Value, FileAnalysisMetadata>>,
+    cache: Cache<
+        String,
+        Value,
+        FileAnalysisMetadata,
+        MemoryBackend<String, Value, FileAnalysisMetadata>,
+    >,
 }
 
 impl FileAnalysisCacheAdapter {
