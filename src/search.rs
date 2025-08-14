@@ -30,7 +30,11 @@ pub struct SearchQuery {
     /// Category filter
     pub category: Option<String>,
     /// Custom predicates as JSON
+    #[cfg(feature = "json-serialization")]
     pub custom_predicates: Option<serde_json::Value>,
+    /// Custom predicates as string (when JSON feature is disabled)
+    #[cfg(not(feature = "json-serialization"))]
+    pub custom_predicates: Option<String>,
 }
 
 impl SearchQuery {

@@ -70,6 +70,8 @@ impl SerializationFormat {
             SerializationFormat::Json => "json",
             #[cfg(feature = "bincode-serialization")]
             SerializationFormat::Bincode => "bin",
+            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
+            _ => "data",
         }
     }
 
@@ -80,6 +82,8 @@ impl SerializationFormat {
             SerializationFormat::Json => serde_json::to_vec_pretty(value).map_err(Into::into),
             #[cfg(feature = "bincode-serialization")]
             SerializationFormat::Bincode => bincode::serialize(value).map_err(Into::into),
+            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
+            _ => Err(crate::error::CacheError::Serialization("No serialization features enabled".to_string())),
         }
     }
 
@@ -90,6 +94,8 @@ impl SerializationFormat {
             SerializationFormat::Json => serde_json::from_slice(data).map_err(Into::into),
             #[cfg(feature = "bincode-serialization")]
             SerializationFormat::Bincode => bincode::deserialize(data).map_err(Into::into),
+            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
+            _ => Err(crate::error::CacheError::Serialization("No serialization features enabled".to_string())),
         }
     }
 }
