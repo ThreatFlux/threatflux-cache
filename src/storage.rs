@@ -76,6 +76,7 @@ impl SerializationFormat {
     }
 
     /// Serialize data to bytes
+    #[allow(unused_variables)]
     pub fn serialize<T: Serialize>(&self, value: &T) -> Result<Vec<u8>> {
         match self {
             #[cfg(feature = "json-serialization")]
@@ -90,6 +91,7 @@ impl SerializationFormat {
     }
 
     /// Deserialize data from bytes
+    #[allow(unused_variables)]
     pub fn deserialize<T: DeserializeOwned>(&self, data: &[u8]) -> Result<T> {
         match self {
             #[cfg(feature = "json-serialization")]
@@ -119,6 +121,7 @@ pub struct StorageStats {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     use super::*;
 
     #[test]

@@ -1,179 +1,177 @@
 //! Example showing how to migrate from file-scanner's cache to threatflux-cache
+//!
+//! This example requires the json-serialization feature.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use threatflux_cache::prelude::*;
-use threatflux_cache::{PersistenceConfig, SearchQuery};
+#[cfg(feature = "json-serialization")]
+mod with_json {
+    use chrono::{DateTime, Utc};
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
+    use threatflux_cache::prelude::*;
+    use threatflux_cache::{PersistenceConfig, SearchQuery};
 
-// Replicate file-scanner's cache entry structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileAnalysisResult {
-    pub file_path: String,
-    pub file_hash: String,
-    pub tool_name: String,
-    pub tool_args: HashMap<String, serde_json::Value>,
-    pub result: serde_json::Value,
-    pub timestamp: DateTime<Utc>,
-    pub file_size: u64,
-    pub execution_time_ms: u64,
-}
-
-// Custom metadata for file analysis
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct FileAnalysisMetadata {
-    pub file_path: String,
-    pub tool_name: String,
-    pub tool_args: HashMap<String, serde_json::Value>,
-    pub file_size: u64,
-    pub execution_time_ms: u64,
-}
-
-impl EntryMetadata for FileAnalysisMetadata {
-    fn execution_time_ms(&self) -> Option<u64> {
-        Some(self.execution_time_ms)
+    // Replicate file-scanner's cache entry structure
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FileAnalysisResult {
+        pub file_path: String,
+        pub file_hash: String,
+        pub tool_name: String,
+        pub tool_args: HashMap<String, serde_json::Value>,
+        pub result: serde_json::Value,
+        pub timestamp: DateTime<Utc>,
+        pub file_size: u64,
+        pub execution_time_ms: u64,
     }
 
-    fn size_bytes(&self) -> Option<u64> {
-        Some(self.file_size)
+    // Custom metadata for file analysis
+    #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+    struct FileAnalysisMetadata {
+        pub file_path: String,
+        pub file_size: u64,
+        pub tool_args: HashMap<String, serde_json::Value>,
+        pub tags: Vec<String>,
     }
 
-    fn category(&self) -> Option<&str> {
-        Some(&self.tool_name)
+    impl EntryMetadata for FileAnalysisMetadata {
+        fn size_bytes(&self) -> Option<u64> {
+            Some(self.file_size)
+        }
+
+        fn category(&self) -> Option<&str> {
+            Some("file_analysis")
+        }
     }
-}
 
-// Type alias for convenience
-#[cfg(feature = "filesystem-backend")]
-type Value = serde_json::Value;
-#[cfg(not(feature = "filesystem-backend"))]
-type Value = serde_json::Value;
+    // Type aliases for compatibility
+    type Value = serde_json::Value;
 
-// Adapter functions to maintain API compatibility
-pub struct FileAnalysisCacheAdapter {
-    #[cfg(feature = "filesystem-backend")]
-    #[allow(clippy::type_complexity)]
-    cache: Cache<
-        String,
-        Value,
-        FileAnalysisMetadata,
-        FilesystemBackend<String, Value, FileAnalysisMetadata>,
-    >,
-    #[cfg(not(feature = "filesystem-backend"))]
-    cache: Cache<
-        String,
-        Value,
-        FileAnalysisMetadata,
-        MemoryBackend<String, Value, FileAnalysisMetadata>,
-    >,
-}
-
-impl FileAnalysisCacheAdapter {
-    pub async fn new(cache_dir: &str) -> std::result::Result<Self, Box<dyn std::error::Error>> {
-        let config = CacheConfig::default()
-            .with_max_entries_per_key(100)
-            .with_max_total_entries(10000)
-            .with_persistence(PersistenceConfig::with_path(cache_dir));
-
+    // Adapter functions to maintain API compatibility
+    pub struct FileAnalysisCacheAdapter {
         #[cfg(feature = "filesystem-backend")]
-        let backend = FilesystemBackend::new(cache_dir).await?;
+        #[allow(clippy::type_complexity)]
+        cache: Cache<
+            String,
+            Value,
+            FileAnalysisMetadata,
+            FilesystemBackend<String, Value, FileAnalysisMetadata>,
+        >,
         #[cfg(not(feature = "filesystem-backend"))]
-        let backend = MemoryBackend::new();
-
-        let cache = Cache::new(config, backend).await?;
-
-        Ok(Self { cache })
+        cache: Cache<
+            String,
+            Value,
+            FileAnalysisMetadata,
+            MemoryBackend<String, Value, FileAnalysisMetadata>,
+        >,
     }
 
-    pub async fn add_entry(
-        &self,
-        entry: FileAnalysisResult,
-    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let metadata = FileAnalysisMetadata {
-            file_path: entry.file_path,
-            tool_name: entry.tool_name,
-            tool_args: entry.tool_args,
-            file_size: entry.file_size,
-            execution_time_ms: entry.execution_time_ms,
+    impl FileAnalysisCacheAdapter {
+        pub async fn new(cache_dir: &str) -> Result<Self> {
+            let config = CacheConfig::default()
+                .with_persistence(PersistenceConfig::with_path(cache_dir))
+                .with_max_entries_per_key(100)
+                .with_max_total_entries(10000);
+
+            #[cfg(feature = "filesystem-backend")]
+            let backend = FilesystemBackend::new(cache_dir).await?;
+            #[cfg(not(feature = "filesystem-backend"))]
+            let backend = MemoryBackend::new();
+
+            let cache = Cache::new(config, backend).await?;
+
+            Ok(Self { cache })
+        }
+
+        // File-scanner compatible API
+        pub async fn add_analysis_result(&self, result: FileAnalysisResult) -> Result<()> {
+            let metadata = FileAnalysisMetadata {
+                file_path: result.file_path.clone(),
+                file_size: result.file_size,
+                tool_args: result.tool_args.clone(),
+                tags: vec![result.tool_name.clone()],
+            };
+
+            let entry = CacheEntry::with_metadata(
+                result.file_hash.clone(),
+                serde_json::to_value(result)?,
+                metadata,
+            );
+
+            self.cache.add_entry(entry).await
+        }
+
+        // Search by file hash
+        pub async fn get_analysis_by_hash(&self, file_hash: &str) -> Option<serde_json::Value> {
+            self.cache
+                .get_latest(&file_hash.to_string())
+                .await
+                .map(|entry| entry.value)
+        }
+
+        // Search analyses by file path pattern
+        pub async fn search_by_path(&self, path_pattern: &str) -> Vec<serde_json::Value> {
+            let query = SearchQuery::new().with_pattern(path_pattern);
+            self.cache
+                .search(&query)
+                .await
+                .into_iter()
+                .map(|entry| entry.value)
+                .collect()
+        }
+    }
+
+    pub async fn run_example() -> Result<()> {
+        // Create adapter with file-scanner compatible API
+        let adapter = FileAnalysisCacheAdapter::new("/tmp/file-scanner-cache").await?;
+
+        // Add an analysis result (mimicking file-scanner usage)
+        let analysis = FileAnalysisResult {
+            file_path: "/bin/ls".to_string(),
+            file_hash: "abc123def456".to_string(),
+            tool_name: "calculate_hashes".to_string(),
+            tool_args: {
+                let mut args = HashMap::new();
+                args.insert(
+                    "algorithm".to_string(),
+                    serde_json::Value::String("sha256".to_string()),
+                );
+                args
+            },
+            result: serde_json::json!({
+                "sha256": "a1b2c3d4e5f6...",
+                "md5": "1a2b3c4d5e6f...",
+                "file_type": "ELF 64-bit LSB executable"
+            }),
+            timestamp: chrono::Utc::now(),
+            file_size: 123456,
+            execution_time_ms: 45,
         };
 
-        let cache_entry = CacheEntry::with_metadata(entry.file_hash, entry.result, metadata);
+        adapter.add_analysis_result(analysis).await?;
 
-        self.cache.add_entry(cache_entry).await?;
+        // Retrieve analysis
+        if let Some(result) = adapter.get_analysis_by_hash("abc123def456").await {
+            println!("Retrieved analysis result:");
+            println!("{}", serde_json::to_string_pretty(&result)?);
+        }
+
+        // Search by file path
+        let results = adapter.search_by_path("/bin").await;
+        println!("Found {} results for /bin pattern", results.len());
+
         Ok(())
-    }
-
-    pub async fn get_latest_analysis(
-        &self,
-        file_hash: &str,
-        tool_name: &str,
-    ) -> Option<serde_json::Value> {
-        let entries = self.cache.get_entries(&file_hash.to_string()).await?;
-
-        entries
-            .into_iter()
-            .filter(|e| e.metadata.tool_name == tool_name)
-            .max_by_key(|e| e.timestamp)
-            .map(|e| e.value)
-    }
-
-    pub async fn search_by_tool(&self, tool_name: &str) -> Vec<FileAnalysisResult> {
-        let query = SearchQuery::new().with_category(tool_name);
-        let results = self.cache.search(&query).await;
-
-        results
-            .into_iter()
-            .map(|entry| FileAnalysisResult {
-                file_path: entry.metadata.file_path,
-                file_hash: entry.key,
-                tool_name: entry.metadata.tool_name,
-                tool_args: entry.metadata.tool_args,
-                result: entry.value,
-                timestamp: entry.timestamp,
-                file_size: entry.metadata.file_size,
-                execution_time_ms: entry.metadata.execution_time_ms,
-            })
-            .collect()
     }
 }
 
+#[cfg(feature = "json-serialization")]
 #[tokio::main]
 #[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    // Create adapter with file-scanner compatible API
-    let adapter = FileAnalysisCacheAdapter::new("/tmp/file-scanner-cache").await?;
-
-    // Add an analysis result (mimicking file-scanner usage)
-    let analysis = FileAnalysisResult {
-        file_path: "/bin/ls".to_string(),
-        file_hash: "abc123def456".to_string(),
-        tool_name: "calculate_hashes".to_string(),
-        tool_args: HashMap::new(),
-        result: serde_json::json!({
-            "md5": "d41d8cd98f00b204e9800998ecf8427e",
-            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        }),
-        timestamp: Utc::now(),
-        file_size: 45056,
-        execution_time_ms: 125,
-    };
-
-    adapter.add_entry(analysis).await?;
-
-    // Get latest analysis for a file and tool
-    if let Some(result) = adapter
-        .get_latest_analysis("abc123def456", "calculate_hashes")
-        .await
-    {
-        println!(
-            "Latest hash analysis: {}",
-            serde_json::to_string_pretty(&result)?
-        );
-    }
-
-    // Search for all hash calculations
-    let hash_results = adapter.search_by_tool("calculate_hashes").await;
-    println!("Found {} hash calculation results", hash_results.len());
-
+    with_json::run_example().await?;
     Ok(())
+}
+
+#[cfg(not(feature = "json-serialization"))]
+fn main() {
+    println!("This example requires the 'json-serialization' feature to be enabled.");
+    println!("Run with: cargo run --example file_scanner_migration --features json-serialization");
 }
