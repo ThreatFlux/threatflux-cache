@@ -1,16 +1,20 @@
 //! Filesystem storage backend
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use crate::{storage::SerializationFormat, CacheEntry, EntryMetadata, Result, StorageBackend};
+use crate::{CacheEntry, EntryMetadata, Result, StorageBackend, storage::SerializationFormat};
+
+/// Type alias for complex phantom data type
+type PhantomTypes<K, V, M> = std::marker::PhantomData<(K, V, M)>;
 
 /// Filesystem storage backend
+#[allow(clippy::type_complexity)]
 pub struct FilesystemBackend<K, V, M = ()>
 where
     K: Hash + Eq + Clone + Send + Sync,
@@ -19,7 +23,7 @@ where
 {
     base_path: PathBuf,
     format: SerializationFormat,
-    _phantom: std::marker::PhantomData<(K, V, M)>,
+    _phantom: PhantomTypes<K, V, M>,
 }
 
 impl<K, V, M> FilesystemBackend<K, V, M>

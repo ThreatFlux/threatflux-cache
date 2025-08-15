@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use threatflux_cache::prelude::*;
-use threatflux_cache::{entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery};
+use threatflux_cache::{EvictionPolicy, PersistenceConfig, SearchQuery, entry::BasicMetadata};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Document {
@@ -12,6 +12,7 @@ struct Document {
 }
 
 #[tokio::main]
+#[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Create a cache with filesystem persistence
     let config = CacheConfig::default()
@@ -23,6 +24,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "filesystem-backend"))]
     let backend = MemoryBackend::new();
 
+    #[allow(clippy::type_complexity)]
     let cache: Cache<String, Document, BasicMetadata, _> = Cache::new(config, backend).await?;
 
     // Create documents with metadata

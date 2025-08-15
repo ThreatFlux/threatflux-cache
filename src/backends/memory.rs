@@ -1,7 +1,7 @@
 //! In-memory storage backend
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -9,17 +9,15 @@ use tokio::sync::RwLock;
 
 use crate::{CacheEntry, EntryMetadata, Result, StorageBackend};
 
-/// Type alias for complex entry storage
-type EntryStorage<K, V, M> = Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>;
-
 /// In-memory storage backend
+#[allow(clippy::type_complexity)]
 pub struct MemoryBackend<K, V, M = ()>
 where
     K: Hash + Eq + Clone + Send + Sync,
     V: Clone + Send + Sync,
     M: Clone + Send + Sync,
 {
-    data: EntryStorage<K, V, M>,
+    data: Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>,
 }
 
 impl<K, V, M> MemoryBackend<K, V, M>

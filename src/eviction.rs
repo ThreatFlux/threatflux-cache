@@ -7,6 +7,9 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// Type alias for eviction strategy box
+type EvictionStrategyBox<K, V, M> = Box<dyn EvictionStrategy<K, V, M>>;
+
 /// Context for eviction decisions
 #[derive(Debug, Clone)]
 pub struct EvictionContext {
@@ -33,7 +36,8 @@ where
 }
 
 /// Create an eviction strategy based on policy
-pub fn create_strategy<K, V, M>(policy: &EvictionPolicy) -> Box<dyn EvictionStrategy<K, V, M>>
+#[allow(clippy::type_complexity)]
+pub fn create_strategy<K, V, M>(policy: &EvictionPolicy) -> EvictionStrategyBox<K, V, M>
 where
     K: Hash + Eq + Clone + Send + Sync + 'static,
     V: Clone + Send + Sync + 'static,
@@ -214,6 +218,7 @@ mod tests {
     use super::*;
     use chrono::Duration;
 
+    #[allow(clippy::type_complexity)]
     fn create_test_entry<K: Clone + std::hash::Hash + Eq, V: Clone>(
         key: K,
         value: V,

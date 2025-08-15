@@ -52,6 +52,7 @@ type Value = serde_json::Value;
 // Adapter functions to maintain API compatibility
 pub struct FileAnalysisCacheAdapter {
     #[cfg(feature = "filesystem-backend")]
+    #[allow(clippy::type_complexity)]
     cache: Cache<
         String,
         Value,
@@ -137,6 +138,7 @@ impl FileAnalysisCacheAdapter {
 }
 
 #[tokio::main]
+#[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Create adapter with file-scanner compatible API
     let adapter = FileAnalysisCacheAdapter::new("/tmp/file-scanner-cache").await?;

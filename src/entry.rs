@@ -170,6 +170,7 @@ mod tests {
 
     #[test]
     fn test_cache_entry_creation() {
+        #[allow(clippy::type_complexity)]
         let entry: CacheEntry<String, String, ()> =
             CacheEntry::new("key1".to_string(), "value1".to_string());
         assert_eq!(entry.key, "key1");
@@ -180,6 +181,7 @@ mod tests {
 
     #[test]
     fn test_cache_entry_ttl() {
+        #[allow(clippy::type_complexity)]
         let entry: CacheEntry<String, String, ()> =
             CacheEntry::new("key1".to_string(), "value1".to_string())
                 .with_ttl(chrono::Duration::seconds(60));
@@ -204,6 +206,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_entry_access_tracking() {
         let mut entry: CacheEntry<String, String, ()> =
             CacheEntry::new("key1".to_string(), "value1".to_string());

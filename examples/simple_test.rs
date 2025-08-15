@@ -13,6 +13,7 @@ struct TestData {
 }
 
 #[tokio::main]
+#[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     println!("🚀 Testing ThreatFlux Cache Library");
 

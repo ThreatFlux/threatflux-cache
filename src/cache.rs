@@ -1,20 +1,26 @@
 //! Core cache implementation
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore};
 
 use crate::{
+    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, StorageBackend,
     eviction::{EvictionContext, EvictionStrategy},
     search::Searchable,
-    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, StorageBackend,
 };
 
 /// Type alias for cache entries storage
 type CacheStorage<K, V, M> = Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>;
+
+/// Type alias for eviction strategy
+type EvictionStrategyBox<K, V, M> = Box<dyn EvictionStrategy<K, V, M>>;
+
+/// Type alias for cache entry
+type Entry<K, V, M> = CacheEntry<K, V, M>;
 
 /// Async cache trait defining the core cache operations
 #[async_trait]
@@ -51,6 +57,7 @@ where
 }
 
 /// Main cache implementation
+#[allow(clippy::type_complexity)]
 pub struct Cache<K, V, M = (), B = crate::backends::memory::MemoryBackend<K, V, M>>
 where
     K: Hash + Eq + Clone + Send + Sync + 'static,
@@ -63,7 +70,7 @@ where
     backend: Arc<B>,
     save_semaphore: Arc<Semaphore>,
     operation_count: Arc<RwLock<usize>>,
-    eviction_strategy: Box<dyn EvictionStrategy<K, V, M>>,
+    eviction_strategy: EvictionStrategyBox<K, V, M>,
 }
 
 impl<K, V, M, B> Cache<K, V, M, B>
@@ -103,7 +110,8 @@ where
     }
 
     /// Add an entry to the cache
-    pub async fn add_entry(&self, entry: CacheEntry<K, V, M>) -> Result<()> {
+    #[allow(clippy::type_complexity)]
+    pub async fn add_entry(&self, entry: Entry<K, V, M>) -> Result<()> {
         let key = entry.key.clone();
 
         {

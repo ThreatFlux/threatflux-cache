@@ -11,6 +11,7 @@ struct User {
 }
 
 #[tokio::main]
+#[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Create a cache with default configuration
     let config = CacheConfig::default()

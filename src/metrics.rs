@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Cache metrics collector
+#[allow(clippy::type_complexity)]
 pub struct CacheMetrics {
     // Placeholder implementation - would integrate with prometheus crate when feature is enabled
     counters: Arc<std::sync::RwLock<HashMap<String, u64>>>,

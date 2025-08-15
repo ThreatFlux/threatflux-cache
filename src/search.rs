@@ -214,6 +214,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_cache_entry_search() {
         let mut entry: CacheEntry<String, String, ()> =
             CacheEntry::new("test_key".to_string(), "test_value".to_string());

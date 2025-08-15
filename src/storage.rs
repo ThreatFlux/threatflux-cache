@@ -3,7 +3,7 @@
 use crate::entry::CacheEntry;
 use crate::error::Result;
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::hash::Hash;
 
