@@ -1,7 +1,7 @@
 //! In-memory storage backend
 
 use async_trait::async_trait;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;

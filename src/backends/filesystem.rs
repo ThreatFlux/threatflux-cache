@@ -1,14 +1,14 @@
 //! Filesystem storage backend
 
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use crate::{CacheEntry, EntryMetadata, Result, StorageBackend, storage::SerializationFormat};
+use crate::{storage::SerializationFormat, CacheEntry, EntryMetadata, Result, StorageBackend};
 
 /// Type alias for complex phantom data type
 type PhantomTypes<K, V, M> = std::marker::PhantomData<(K, V, M)>;

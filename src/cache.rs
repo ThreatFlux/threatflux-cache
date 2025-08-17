@@ -1,16 +1,16 @@
 //! Core cache implementation
 
 use async_trait::async_trait;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore};
 
 use crate::{
-    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, StorageBackend,
     eviction::{EvictionContext, EvictionStrategy},
     search::Searchable,
+    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, StorageBackend,
 };
 
 /// Type alias for cache entries storage
@@ -345,11 +345,11 @@ where
             let entries = self.entries.clone();
             let backend = self.backend.clone();
 
-            // We can't use async in drop, so we try to block on the runtime if available
+            // We can't use async in drop, so we spawn a task to save
             if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                let _ = handle.block_on(async move {
+                handle.spawn(async move {
                     let entries = entries.read().await;
-                    backend.save(&entries).await
+                    let _ = backend.save(&entries).await;
                 });
             }
         }

@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use threatflux_cache::prelude::*;
-use threatflux_cache::{EvictionPolicy, PersistenceConfig, SearchQuery, entry::BasicMetadata};
+use threatflux_cache::{entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Document {
