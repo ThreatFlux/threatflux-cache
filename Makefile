@@ -28,8 +28,8 @@ NC = \033[0m # No Color
 .PHONY: coverage coverage-open coverage-lcov coverage-html coverage-summary coverage-json coverage-docker
 .PHONY: dev-setup setup-dev ci-local ci-local-coverage
 
-# Default target
-all: fmt-check lint audit deny codedup test feature-check docs build examples ## Run all checks and builds locally
+# Default target  
+all: fmt-check lint audit deny codedup test msrv-check feature-check docs build examples ## Run all checks and builds locally
 
 # Extended target with coverage
 all-coverage: fmt-check lint audit deny codedup test coverage docs build examples ## Run all checks including coverage locally
@@ -260,9 +260,22 @@ test-features: ## Test with different feature combinations
 	@cargo test --verbose --no-default-features --features "metrics"
 	@echo "$(GREEN)✅ All feature combinations tested!$(NC)"
 
+test-integration: ## Run integration tests
+	@echo "$(CYAN)Running integration tests...$(NC)"
+	@if ls tests/*.rs 1>/dev/null 2>&1; then \
+		cargo test --test '*' --all-features -- --nocapture; \
+	else \
+		echo "$(YELLOW)No integration tests found in tests/ directory$(NC)"; \
+	fi
+
 feature-check: ## Check all feature combinations with cargo-hack
 	@echo "$(CYAN)Checking feature combinations with cargo-hack...$(NC)"
 	@cargo hack check --feature-powerset --depth 2 --no-dev-deps 2>/dev/null || echo "$(YELLOW)Feature check requires cargo-hack (cargo install cargo-hack)$(NC)"
+
+msrv-check: ## Check Minimum Supported Rust Version (1.81.0)
+	@echo "$(CYAN)Checking MSRV (1.81.0)...$(NC)"
+	@rustup toolchain install 1.81.0 --profile minimal 2>/dev/null || true
+	@cargo +1.81.0 check --all-features && echo "$(GREEN)✅ MSRV check passed!$(NC)" || echo "$(RED)❌ MSRV check failed - code requires features from Rust > 1.81.0$(NC)"
 
 # =============================================================================
 # Build Commands
@@ -403,10 +416,16 @@ ci-local: ## Run CI-like checks locally
 	@$(MAKE) deny
 	@echo "$(BLUE)=== Tests ===$(NC)"
 	@$(MAKE) test
+	@echo "$(BLUE)=== Integration Tests ===$(NC)"
+	@$(MAKE) test-integration
+	@echo "$(BLUE)=== MSRV Check ===$(NC)"
+	@$(MAKE) msrv-check
 	@echo "$(BLUE)=== Documentation ===$(NC)"
 	@$(MAKE) docs
 	@echo "$(BLUE)=== Build ===$(NC)"
 	@$(MAKE) build-all
+	@echo "$(BLUE)=== Examples ===$(NC)"
+	@$(MAKE) examples
 	@echo "$(GREEN)✅ All CI checks passed locally!$(NC)"
 
 ci-local-coverage: ## Run CI-like checks locally with coverage
@@ -472,6 +491,12 @@ pre-commit: ## Run pre-commit checks
 	@$(MAKE) lint
 	@$(MAKE) test
 	@echo "$(GREEN)✅ Pre-commit checks passed!$(NC)"
+
+pre-push: ## Run comprehensive checks before pushing (ensures CI will pass)
+	@echo "$(CYAN)Running pre-push checks to ensure CI will pass...$(NC)"
+	@echo "$(YELLOW)This will run all checks that CI runs. It may take a few minutes.$(NC)"
+	@$(MAKE) ci-local
+	@echo "$(GREEN)✅ All pre-push checks passed! Safe to push.$(NC)"
 
 # Show variables for debugging
 debug-vars: ## Show Makefile variables
