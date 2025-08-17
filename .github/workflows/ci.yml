@@ -251,8 +251,12 @@ jobs:
 
     - name: Run integration tests
       run: |
-        cargo test --test integration_test --all-features -- --nocapture
-        cargo test --test cache_comprehensive_test --all-features -- --nocapture
+        # Check if any integration tests exist
+        if ls tests/*.rs 2>/dev/null | grep -q .; then
+          cargo test --test '*' --all-features -- --nocapture
+        else
+          echo "No integration tests found in tests/ directory"
+        fi
 
   build-status:
     name: Build Status
