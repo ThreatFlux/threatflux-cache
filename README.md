@@ -1,4 +1,16 @@
 # ThreatFlux Cache
+[![Crates.io](https://img.shields.io/crates/v/threatflux-cache.svg)](https://crates.io/crates/threatflux-cache)
+[![Documentation](https://docs.rs/threatflux-cache/badge.svg)](https://docs.rs/threatflux-cache)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![CI](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml)
+[![Release](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml)
+[![Security](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml)
+[![Documentation](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/docs.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/docs.yml)
+[![codecov](https://codecov.io/gh/ThreatFlux/threatflux-cache/graph/badge.svg?token=DlAEOagOhp)](https://codecov.io/gh/ThreatFlux/threatflux-cache)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/8f07242350d84597af1af64edbc505fa)](https://app.codacy.com/gh/ThreatFlux/threatflux-cache/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+
+
 
 A flexible, async-first cache library for Rust with pluggable backends, multiple eviction policies, and advanced search capabilities.
 
