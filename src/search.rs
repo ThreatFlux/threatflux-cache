@@ -234,4 +234,57 @@ mod tests {
         let query4 = SearchQuery::new().with_access_count_range(Some(10), None);
         assert!(!entry.matches(&query4));
     }
+
+    #[test]
+    fn test_search_query_timestamp_category() {
+        let now = Utc::now();
+        let query = SearchQuery::new()
+            .with_timestamp_range(Some(now - chrono::Duration::seconds(1)), Some(now + chrono::Duration::seconds(1)))
+            .with_category("api");
+        assert!(query.min_timestamp.is_some());
+        assert_eq!(query.category, Some("api".to_string()));
+    }
+
+    #[test]
+    fn test_search_result_details() {
+        let result = SearchResult::new(1u32, 0.5).with_detail("match");
+        assert_eq!(result.score, 0.5);
+        assert_eq!(result.match_details, vec!["match".to_string()]);
+    }
+
+    #[test]
+    fn test_cache_entry_search_branches() {
+        use crate::entry::BasicMetadata;
+        let metadata = BasicMetadata {
+            category: Some("cat".to_string()),
+            ..Default::default()
+        };
+        let mut entry = CacheEntry::with_metadata("k".to_string(), "v".to_string(), metadata);
+
+        let past = entry.timestamp - chrono::Duration::seconds(10);
+        let future = entry.timestamp + chrono::Duration::seconds(10);
+
+        // timestamp range not matching
+        let q = SearchQuery::new().with_timestamp_range(Some(future), None);
+        assert!(!entry.matches(&q));
+
+        // timestamp range matching
+        let q2 = SearchQuery::new().with_timestamp_range(Some(past), Some(future));
+        assert!(entry.matches(&q2));
+
+        // category matching
+        let q3 = SearchQuery::new().with_category("cat");
+        assert!(entry.matches(&q3));
+
+        // category mismatch
+        let q4 = SearchQuery::new().with_category("other");
+        assert!(!entry.matches(&q4));
+
+        // expired handling
+        entry.expiry = Some(entry.timestamp - chrono::Duration::seconds(1));
+        let q5 = SearchQuery::new();
+        assert!(!entry.matches(&q5));
+        let q6 = SearchQuery::new().include_expired(true);
+        assert!(entry.matches(&q6));
+    }
 }

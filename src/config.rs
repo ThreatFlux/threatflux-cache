@@ -225,6 +225,21 @@ mod tests {
         assert!(persistence.load_on_startup);
     }
 
+    #[test]
+    fn test_persistence_config_disabled() {
+        let persistence = PersistenceConfig::disabled();
+        assert!(!persistence.enabled);
+        assert_eq!(persistence.path, None);
+    }
+
+    #[test]
+    fn test_with_persistence_builder() {
+        let p = PersistenceConfig::with_path("/tmp/data");
+        let config = CacheConfig::new().with_persistence(p.clone());
+        assert!(config.persistence.enabled);
+        assert_eq!(config.persistence.path, p.path);
+    }
+
     #[cfg(feature = "compression")]
     #[test]
     fn test_compression_config() {
