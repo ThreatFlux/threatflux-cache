@@ -35,44 +35,32 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     // Test basic operations
     println!("📝 Testing basic cache operations...");
+    let key = "test_key".to_string();
 
     // Put operation
-    cache.put("test_key".to_string(), test_data.clone()).await?;
+    cache.put(key.clone(), test_data.clone()).await?;
     println!("✅ Put operation successful");
 
     // Get operation
-    if let Some(retrieved) = cache.get(&"test_key".to_string()).await? {
-        assert_eq!(retrieved, test_data);
-        println!("✅ Get operation successful - data matches");
-    } else {
-        return Err("Failed to retrieve data from cache".into());
-    }
+    assert_eq!(cache.get(&key).await?, Some(test_data.clone()));
+    println!("✅ Get operation successful - data matches");
 
     // Contains operation
-    if cache.contains(&"test_key".to_string()).await? {
-        println!("✅ Contains operation successful");
-    } else {
-        return Err("Contains check failed".into());
-    }
+    assert!(cache.contains(&key).await?);
+    println!("✅ Contains operation successful");
 
     // Cache statistics
     let len = cache.len().await?;
     println!("📊 Cache has {len} entries");
 
     // Remove operation
-    if let Some(removed) = cache.remove(&"test_key".to_string()).await? {
-        assert_eq!(removed, test_data);
-        println!("✅ Remove operation successful");
-    } else {
-        return Err("Remove operation failed".into());
-    }
+    let removed = cache.remove(&key).await?.expect("Remove operation failed");
+    assert_eq!(removed, test_data);
+    println!("✅ Remove operation successful");
 
     // Verify empty after removal
-    if cache.is_empty().await? {
-        println!("✅ Cache is empty after removal");
-    } else {
-        return Err("Cache should be empty after removal".into());
-    }
+    assert!(cache.is_empty().await?);
+    println!("✅ Cache is empty after removal");
 
     // Clear operation
     cache.clear().await?;

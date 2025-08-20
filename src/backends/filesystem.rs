@@ -93,6 +93,18 @@ where
         self.base_path
             .join(format!("metadata.{}", self.format.extension()))
     }
+
+    async fn write_data<P: AsRef<Path>>(&self, path: P, data: &[u8]) -> Result<()> {
+        let mut file = File::create(path).await?;
+        file.write_all(data).await?;
+        file.flush().await?;
+        Ok(())
+    }
+
+    fn is_cache_file_path(&self, path: &Path) -> bool {
+        path.extension().and_then(|s| s.to_str()) == Some(self.format.extension())
+            && path.file_stem().and_then(|s| s.to_str()) != Some("metadata")
+    }
 }
 
 #[async_trait]
@@ -107,73 +119,46 @@ where
     type Metadata = M;
 
     async fn save(&self, entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>) -> Result<()> {
-        // Save each key's entries to a separate file
         for (key, entry_vec) in entries {
             let file_path = self.get_cache_file_path(&key.to_string());
             let data = self.format.serialize(entry_vec)?;
-
-            let mut file = File::create(&file_path).await?;
-            file.write_all(&data).await?;
-            file.flush().await?;
+            self.write_data(file_path, &data).await?;
         }
 
-        // Save metadata about the cache
         let metadata = CacheMetadata {
             total_keys: entries.len(),
             last_updated: chrono::Utc::now(),
         };
-
-        let metadata_path = self.get_metadata_path();
         let data = self.format.serialize(&metadata)?;
-
-        let mut file = File::create(&metadata_path).await?;
-        file.write_all(&data).await?;
-        file.flush().await?;
-
-        Ok(())
+        self.write_data(self.get_metadata_path(), &data).await
     }
 
     async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
         let mut entries = HashMap::new();
-
-        // Read all cache files
         let mut dir_entries = fs::read_dir(&self.base_path).await?;
-
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
-
-            // Skip non-cache files
-            if path.extension().and_then(|s| s.to_str()) != Some(self.format.extension()) {
+            if !self.is_cache_file_path(&path) {
                 continue;
             }
-
-            // Skip metadata file
-            if path.file_stem().and_then(|s| s.to_str()) == Some("metadata") {
-                continue;
-            }
-
-            // Read and deserialize the file
-            match fs::read(&path).await {
-                Ok(data) => {
-                    match self.format.deserialize::<Vec<CacheEntry<K, V, M>>>(&data) {
-                        Ok(entry_vec) => {
-                            if let Some(first_entry) = entry_vec.first() {
-                                entries.insert(first_entry.key.clone(), entry_vec);
-                            }
-                        }
-                        Err(e) => {
-                            // Log error but continue loading other files
-                            eprintln!("Failed to deserialize cache file {path:?}: {e}");
-                        }
-                    }
-                }
+            let data = match fs::read(&path).await {
+                Ok(d) => d,
                 Err(e) => {
-                    // Log error but continue loading other files
                     eprintln!("Failed to read cache file {path:?}: {e}");
+                    continue;
                 }
+            };
+            let entry_vec: Vec<CacheEntry<K, V, M>> = match self.format.deserialize(&data) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Failed to deserialize cache file {path:?}: {e}");
+                    continue;
+                }
+            };
+            if let Some(first_entry) = entry_vec.first() {
+                entries.insert(first_entry.key.clone(), entry_vec);
             }
         }
-
         Ok(entries)
     }
 
@@ -332,57 +317,27 @@ mod tests {
 
     #[test]
     fn test_filename_sanitization() {
-        // Test various dangerous characters
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd"),
-            "_._etc_passwd"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file\\name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file:name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file*name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file?name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file\"name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file<name>"),
-            "file_name_"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("file|name"),
-            "file_name"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename(".hidden"),
-            "_hidden"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("..."),
-            "_"
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename(""),
-            ""
-        );
-        assert_eq!(
-            FilesystemBackend::<String, String>::sanitize_filename("   "),
-            ""
-        );
+        let cases = [
+            ("../etc/passwd", "_._etc_passwd"),
+            ("file\\name", "file_name"),
+            ("file:name", "file_name"),
+            ("file*name", "file_name"),
+            ("file?name", "file_name"),
+            ("file\"name", "file_name"),
+            ("file<name>", "file_name_"),
+            ("file|name", "file_name"),
+            (".hidden", "_hidden"),
+            ("...", "_"),
+            ("", ""),
+            ("   ", ""),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(
+                FilesystemBackend::<String, String>::sanitize_filename(input),
+                expected
+            );
+        }
 
-        // Test the most important security aspect: no path traversal
         let result = FilesystemBackend::<String, String>::sanitize_filename("../etc/passwd");
         assert!(!result.contains('/'));
         assert!(!result.contains('\\'));

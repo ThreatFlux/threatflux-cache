@@ -169,27 +169,19 @@ where
     async fn evict(
         &self,
         entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        _context: &EvictionContext,
+        context: &EvictionContext,
     ) {
-        // Remove all expired entries first
-        let keys_to_check: Vec<K> = entries.keys().cloned().collect();
-
-        for key in keys_to_check {
-            if let Some(entry_vec) = entries.get_mut(&key) {
-                // Remove expired entries from the vector
-                entry_vec.retain(|entry| !entry.is_expired());
-
-                // If all entries for this key are expired, remove the key
-                if entry_vec.is_empty() {
+        for key in entries.keys().cloned().collect::<Vec<_>>() {
+            if let Some(vec) = entries.get_mut(&key) {
+                vec.retain(|e| !e.is_expired());
+                if vec.is_empty() {
                     entries.remove(&key);
                 }
             }
         }
-
-        // If still over capacity, fall back to FIFO
         let total_entries: usize = entries.values().map(|v| v.len()).sum();
-        if total_entries > _context.max_total_entries {
-            FifoEviction.evict(entries, _context).await;
+        if total_entries > context.max_total_entries {
+            FifoEviction.evict(entries, context).await;
         }
     }
 }
