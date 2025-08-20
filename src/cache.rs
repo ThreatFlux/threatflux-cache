@@ -375,6 +375,7 @@ pub struct CacheStats {
 mod tests {
     use super::*;
     use crate::backends::memory::MemoryBackend;
+    use crate::SearchQuery;
 
     #[tokio::test]
     async fn test_cache_basic_operations() {
@@ -423,5 +424,118 @@ mod tests {
         cache.clear().await.unwrap();
         assert_eq!(cache.len().await.unwrap(), 0);
         assert!(!cache.contains(&"key1".to_string()).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_cache_entries_search_stats() {
+        let config = CacheConfig::default();
+        let backend = MemoryBackend::new();
+        let cache: Cache<String, String> = Cache::new(config, backend).await.unwrap();
+
+        cache
+            .add_entry(CacheEntry::new("key".to_string(), "v1".to_string()))
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        cache
+            .add_entry(CacheEntry::new("key".to_string(), "v2".to_string()))
+            .await
+            .unwrap();
+
+        let entries = cache.get_entries(&"key".to_string()).await.unwrap();
+        assert_eq!(entries.len(), 2);
+        let latest = cache.get_latest(&"key".to_string()).await.unwrap();
+        assert_eq!(latest.value, "v2");
+
+        let results = cache.search(&SearchQuery::new().with_pattern("key")).await;
+        assert_eq!(results.len(), 2);
+
+        // Add expired entry for stats
+        let expired = CacheEntry::new("expired".to_string(), "v".to_string())
+            .with_ttl(chrono::Duration::seconds(-1));
+        cache.add_entry(expired).await.unwrap();
+
+        let stats = cache.get_stats().await;
+        assert_eq!(stats.total_entries, 3);
+        assert!(stats.expired_count >= 1);
+        assert!(stats.total_access_count >= 2); // accesses from get_entries/get_latest
+    }
+
+    #[tokio::test]
+    async fn test_cache_persistence() {
+        use std::sync::Arc;
+        use tokio::sync::RwLock;
+
+        #[derive(Clone, Default)]
+        #[allow(clippy::type_complexity)]
+        struct MockBackend {
+            entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
+            save_calls: Arc<RwLock<usize>>,
+            load_calls: Arc<RwLock<usize>>,
+        }
+
+        #[async_trait::async_trait]
+        impl StorageBackend for MockBackend {
+            type Key = String;
+            type Value = String;
+            type Metadata = ();
+
+            async fn save(
+                &self,
+                entries: &HashMap<
+                    Self::Key,
+                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
+                >,
+            ) -> Result<()> {
+                *self.save_calls.write().await += 1;
+                *self.entries.write().await = entries.clone();
+                Ok(())
+            }
+
+            async fn load(
+                &self,
+            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
+            {
+                *self.load_calls.write().await += 1;
+                Ok(self.entries.read().await.clone())
+            }
+
+            async fn remove(&self, key: &Self::Key) -> Result<()> {
+                self.entries.write().await.remove(key);
+                Ok(())
+            }
+
+            async fn clear(&self) -> Result<()> {
+                self.entries.write().await.clear();
+                Ok(())
+            }
+        }
+
+        let backend = MockBackend::default();
+        // Preload backend
+        backend
+            .save(&HashMap::from([(
+                "loaded".to_string(),
+                vec![CacheEntry::new("loaded".to_string(), "v".to_string())],
+            )]))
+            .await
+            .unwrap();
+
+        let mut config = CacheConfig::default();
+        config.persistence.enabled = true;
+        config.persistence.load_on_startup = true;
+        config.persistence.sync_interval = 1;
+
+        let cache: Cache<String, String, (), MockBackend> =
+            Cache::new(config, backend.clone()).await.unwrap();
+        // Loaded entry should be present
+        assert!(cache.contains(&"loaded".to_string()).await.unwrap());
+        assert_eq!(*backend.load_calls.read().await, 1);
+
+        // Put new entry triggers save due to sync_interval=1
+        cache.put("k".to_string(), "v".to_string()).await.unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(*backend.save_calls.read().await >= 1);
+        assert!(backend.entries.read().await.contains_key("k"));
     }
 }

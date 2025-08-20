@@ -39,7 +39,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Retrieve a user
     if let Some(user) = cache.get(&"user:1".to_string()).await? {
-        println!("Found user: {:?}", user);
+        println!("Found user: {user:?}");
     }
 
     // Check if a key exists
@@ -56,7 +56,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     // Remove a user
     if let Some(removed) = cache.remove(&"user:1".to_string()).await? {
-        println!("Removed user: {:?}", removed);
+        println!("Removed user: {removed:?}");
     }
 
     // Clear the cache

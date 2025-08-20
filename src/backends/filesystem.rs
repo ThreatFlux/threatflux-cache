@@ -163,13 +163,13 @@ where
                         }
                         Err(e) => {
                             // Log error but continue loading other files
-                            eprintln!("Failed to deserialize cache file {:?}: {}", path, e);
+                            eprintln!("Failed to deserialize cache file {path:?}: {e}");
                         }
                     }
                 }
                 Err(e) => {
                     // Log error but continue loading other files
-                    eprintln!("Failed to read cache file {:?}: {}", path, e);
+                    eprintln!("Failed to read cache file {path:?}: {e}");
                 }
             }
         }
@@ -316,8 +316,8 @@ mod tests {
         // Save some data
         let mut entries = HashMap::new();
         for i in 0..5 {
-            let entry = CacheEntry::new(format!("key{}", i), format!("value{}", i));
-            entries.insert(format!("key{}", i), vec![entry]);
+            let entry = CacheEntry::new(format!("key{i}"), format!("value{i}"));
+            entries.insert(format!("key{i}"), vec![entry]);
         }
 
         backend.save(&entries).await.unwrap();
@@ -353,18 +353,14 @@ mod tests {
             // Ensure the path is within the base directory
             assert!(
                 path.starts_with(&backend.base_path),
-                "Malicious key '{}' resulted in path outside base directory: {:?}",
-                malicious_key,
-                path
+                "Malicious key '{malicious_key}' resulted in path outside base directory: {path:?}"
             );
 
             // Ensure the filename doesn't contain path separators
             let filename = path.file_name().unwrap().to_str().unwrap();
             assert!(
                 !filename.contains('/') && !filename.contains('\\'),
-                "Filename '{}' contains path separators for key '{}'",
-                filename,
-                malicious_key
+                "Filename '{filename}' contains path separators for key '{malicious_key}'"
             );
         }
     }

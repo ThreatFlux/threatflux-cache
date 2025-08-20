@@ -121,9 +121,9 @@ pub struct StorageStats {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     use super::*;
-
+    use async_trait::async_trait;
+    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     #[test]
     fn test_serialization_format_extension() {
         #[cfg(feature = "json-serialization")]
@@ -152,5 +152,66 @@ mod tests {
         let deserialized: TestData = format.deserialize(&serialized).unwrap();
 
         assert_eq!(data, deserialized);
+    }
+
+    #[tokio::test]
+    async fn test_default_storage_methods() {
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use tokio::sync::RwLock;
+
+        #[derive(Default)]
+        #[allow(clippy::type_complexity)]
+        struct DummyBackend {
+            entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
+        }
+
+        #[async_trait]
+        impl StorageBackend for DummyBackend {
+            type Key = String;
+            type Value = String;
+            type Metadata = ();
+
+            async fn save(
+                &self,
+                entries: &HashMap<
+                    Self::Key,
+                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
+                >,
+            ) -> Result<()> {
+                *self.entries.write().await = entries.clone();
+                Ok(())
+            }
+
+            async fn load(
+                &self,
+            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
+            {
+                Ok(self.entries.read().await.clone())
+            }
+
+            async fn remove(&self, key: &Self::Key) -> Result<()> {
+                self.entries.write().await.remove(key);
+                Ok(())
+            }
+
+            async fn clear(&self) -> Result<()> {
+                self.entries.write().await.clear();
+                Ok(())
+            }
+        }
+
+        let backend = DummyBackend::default();
+        let mut map = HashMap::new();
+        map.insert(
+            "a".to_string(),
+            vec![CacheEntry::new("a".to_string(), "v".to_string())],
+        );
+        backend.save(&map).await.unwrap();
+
+        assert!(backend.contains(&"a".to_string()).await.unwrap());
+        assert!(!backend.contains(&"b".to_string()).await.unwrap());
+        assert_eq!(backend.size_bytes().await.unwrap(), 0);
+        backend.compact().await.unwrap();
     }
 }
