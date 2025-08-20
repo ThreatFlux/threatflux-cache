@@ -28,7 +28,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       with:
         fetch-depth: 0
 
@@ -68,15 +68,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
       with:
         components: rustfmt, clippy
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -126,15 +126,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
       with:
         targets: ${{ matrix.target }}
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -165,7 +165,7 @@ jobs:
         cd ../../..
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: ${{ matrix.artifact_name }}
         path: artifacts/*
@@ -180,7 +180,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       with:
         fetch-depth: 0
 
@@ -234,13 +234,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -267,15 +267,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
       with:
         path: release-artifacts
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8  # v2.3.2
       with:
         tag_name: v${{ needs.validate-tag.outputs.version }}
         name: ThreatFlux Cache v${{ needs.validate-tag.outputs.version }}

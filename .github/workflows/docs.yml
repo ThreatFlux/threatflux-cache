@@ -40,13 +40,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -71,15 +71,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       with:
         fetch-depth: 0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -269,7 +269,7 @@ jobs:
         enablement: true  # Enable Pages if not already enabled
 
     - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b  # v4.0.0
       if: github.ref == 'refs/heads/main'
       with:
         path: target/doc
@@ -289,7 +289,7 @@ jobs:
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e  # v4.0.5
 
   benchmark-docs:
     name: Documentation Benchmarks
@@ -298,13 +298,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -342,13 +342,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -380,7 +380,7 @@ jobs:
         echo "For detailed results, check the workflow logs." >> link-report.md
 
     - name: Upload link report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: link-check-report
         path: link-report.md
@@ -391,13 +391,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -438,7 +438,7 @@ jobs:
         fi
 
     - name: Upload quality report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: docs-quality-report
         path: doc-coverage.txt
@@ -476,7 +476,7 @@ jobs:
         echo "Summary generated on: $(date)" >> docs-summary.md
 
     - name: Upload summary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: docs-build-summary
         path: docs-summary.md

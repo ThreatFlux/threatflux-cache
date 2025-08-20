@@ -25,13 +25,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -64,7 +64,7 @@ jobs:
         fi
 
     - name: Upload audit report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: security-audit-report
         path: audit-report.json
@@ -76,15 +76,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
       with:
         components: clippy
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -125,10 +125,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Dependency Review
-      uses: actions/dependency-review-action@v4
+      uses: actions/dependency-review-action@bc41886e18ea39df68b1b1245f4184881938e050  # v4.7.2
       with:
         fail-on-severity: moderate
         comment-summary-in-pr: on-failure
@@ -139,13 +139,13 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -244,12 +244,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       with:
         fetch-depth: 0
 
     - name: Run TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
+      uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503  # v3.90.5
       with:
         path: ./
         extra_args: --debug --only-verified
@@ -261,7 +261,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
@@ -270,10 +270,10 @@ jobs:
         queries: security-extended,security-and-quality
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Cache cargo
-      uses: actions/cache@v4
+      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809  # v4.2.4
       with:
         path: |
           ~/.cargo/registry/index/
@@ -296,10 +296,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b  # v1
 
     - name: Check for unsafe code
       run: |
@@ -328,7 +328,7 @@ jobs:
 
     steps:
     - name: Download audit report
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
       with:
         name: security-audit-report
         path: ./reports
@@ -355,7 +355,7 @@ jobs:
         echo "Report generated on: $(date)" >> security-summary.md
 
     - name: Upload security report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
       with:
         name: security-report
         path: security-summary.md
