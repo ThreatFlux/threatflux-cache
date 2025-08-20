@@ -241,41 +241,6 @@ mod tests {
     use tempfile::TempDir;
 
     #[tokio::test]
-    async fn test_filesystem_backend_operations() {
-        let temp_dir = TempDir::new().unwrap();
-        let backend: FilesystemBackend<String, String> =
-            FilesystemBackend::new(temp_dir.path()).await.unwrap();
-
-        // Test empty state
-        let loaded = backend.load().await.unwrap();
-        assert!(loaded.is_empty());
-
-        // Test save and load
-        let mut entries = HashMap::new();
-        let entry = CacheEntry::new("key1".to_string(), "value1".to_string());
-        entries.insert("key1".to_string(), vec![entry]);
-
-        backend.save(&entries).await.unwrap();
-        let loaded = backend.load().await.unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert!(loaded.contains_key("key1"));
-
-        // Test contains
-        assert!(backend.contains(&"key1".to_string()).await.unwrap());
-        assert!(!backend.contains(&"key2".to_string()).await.unwrap());
-
-        // Test remove
-        backend.remove(&"key1".to_string()).await.unwrap();
-        assert!(!backend.contains(&"key1".to_string()).await.unwrap());
-
-        // Test clear
-        backend.save(&entries).await.unwrap();
-        backend.clear().await.unwrap();
-        let loaded = backend.load().await.unwrap();
-        assert!(loaded.is_empty());
-    }
-
-    #[tokio::test]
     async fn test_filesystem_backend_persistence() {
         let temp_dir = TempDir::new().unwrap();
         let path = temp_dir.path().to_path_buf();

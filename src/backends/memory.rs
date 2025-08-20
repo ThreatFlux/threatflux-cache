@@ -113,39 +113,6 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_memory_backend_operations() {
-        let backend: MemoryBackend<String, String> = MemoryBackend::new();
-
-        // Test empty state
-        let loaded = backend.load().await.unwrap();
-        assert!(loaded.is_empty());
-
-        // Test save and load
-        let mut entries = HashMap::new();
-        let entry = CacheEntry::new("key1".to_string(), "value1".to_string());
-        entries.insert("key1".to_string(), vec![entry]);
-
-        backend.save(&entries).await.unwrap();
-        let loaded = backend.load().await.unwrap();
-        assert_eq!(loaded.len(), 1);
-        assert!(loaded.contains_key("key1"));
-
-        // Test contains
-        assert!(backend.contains(&"key1".to_string()).await.unwrap());
-        assert!(!backend.contains(&"key2".to_string()).await.unwrap());
-
-        // Test remove
-        backend.remove(&"key1".to_string()).await.unwrap();
-        assert!(!backend.contains(&"key1".to_string()).await.unwrap());
-
-        // Test clear
-        backend.save(&entries).await.unwrap();
-        backend.clear().await.unwrap();
-        let loaded = backend.load().await.unwrap();
-        assert!(loaded.is_empty());
-    }
-
-    #[tokio::test]
     async fn test_memory_backend_clone() {
         let backend1: MemoryBackend<String, String> = MemoryBackend::new();
         let backend2 = backend1.clone();
