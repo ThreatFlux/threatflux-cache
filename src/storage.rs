@@ -121,9 +121,9 @@ pub struct StorageStats {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     use super::*;
-
+    use async_trait::async_trait;
+    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     #[test]
     fn test_serialization_format_extension() {
         #[cfg(feature = "json-serialization")]
@@ -161,6 +161,7 @@ mod tests {
         use tokio::sync::RwLock;
 
         #[derive(Default)]
+        #[allow(clippy::type_complexity)]
         struct DummyBackend {
             entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
         }
@@ -173,7 +174,10 @@ mod tests {
 
             async fn save(
                 &self,
-                entries: &HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>,
+                entries: &HashMap<
+                    Self::Key,
+                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
+                >,
             ) -> Result<()> {
                 *self.entries.write().await = entries.clone();
                 Ok(())
@@ -181,7 +185,8 @@ mod tests {
 
             async fn load(
                 &self,
-            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>> {
+            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
+            {
                 Ok(self.entries.read().await.clone())
             }
 

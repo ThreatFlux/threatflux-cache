@@ -57,7 +57,7 @@ async fn main() -> std::result::Result<(), Box<dyn Error>> {
 
     // Cache statistics
     let len = cache.len().await?;
-    println!("📊 Cache has {} entries", len);
+    println!("📊 Cache has {len} entries");
 
     // Remove operation
     if let Some(removed) = cache.remove(&"test_key".to_string()).await? {

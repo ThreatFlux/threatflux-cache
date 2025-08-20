@@ -467,6 +467,7 @@ mod tests {
         use tokio::sync::RwLock;
 
         #[derive(Clone, Default)]
+        #[allow(clippy::type_complexity)]
         struct MockBackend {
             entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
             save_calls: Arc<RwLock<usize>>,
@@ -481,7 +482,10 @@ mod tests {
 
             async fn save(
                 &self,
-                entries: &HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>,
+                entries: &HashMap<
+                    Self::Key,
+                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
+                >,
             ) -> Result<()> {
                 *self.save_calls.write().await += 1;
                 *self.entries.write().await = entries.clone();
@@ -490,7 +494,8 @@ mod tests {
 
             async fn load(
                 &self,
-            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>> {
+            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
+            {
                 *self.load_calls.write().await += 1;
                 Ok(self.entries.read().await.clone())
             }
@@ -528,10 +533,7 @@ mod tests {
         assert_eq!(*backend.load_calls.read().await, 1);
 
         // Put new entry triggers save due to sync_interval=1
-        cache
-            .put("k".to_string(), "v".to_string())
-            .await
-            .unwrap();
+        cache.put("k".to_string(), "v".to_string()).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         assert!(*backend.save_calls.read().await >= 1);
         assert!(backend.entries.read().await.contains_key("k"));

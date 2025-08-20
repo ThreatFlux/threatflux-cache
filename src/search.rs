@@ -239,7 +239,10 @@ mod tests {
     fn test_search_query_timestamp_category() {
         let now = Utc::now();
         let query = SearchQuery::new()
-            .with_timestamp_range(Some(now - chrono::Duration::seconds(1)), Some(now + chrono::Duration::seconds(1)))
+            .with_timestamp_range(
+                Some(now - chrono::Duration::seconds(1)),
+                Some(now + chrono::Duration::seconds(1)),
+            )
             .with_category("api");
         assert!(query.min_timestamp.is_some());
         assert_eq!(query.category, Some("api".to_string()));

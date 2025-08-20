@@ -79,22 +79,24 @@ mod tests {
         matches!(io_err, CacheError::Io(_));
 
         let ser_err = CacheError::Serialization("ser".into());
-        assert_eq!(format!("{}", ser_err), "Serialization error: ser");
+        assert_eq!(format!("{ser_err}"), "Serialization error: ser");
 
         let des_err = CacheError::Deserialization("de".into());
-        assert_eq!(format!("{}", des_err), "Deserialization error: de");
+        assert_eq!(format!("{des_err}"), "Deserialization error: de");
 
-        let cap_err = CacheError::CapacityExceeded { message: "full".into() };
+        let cap_err = CacheError::CapacityExceeded {
+            message: "full".into(),
+        };
         assert!(matches!(cap_err, CacheError::CapacityExceeded { .. }));
 
         let backend_err = CacheError::StorageBackend("be".into());
         assert!(matches!(backend_err, CacheError::StorageBackend(_)));
 
         let not_found = CacheError::NotFound;
-        assert_eq!(format!("{}", not_found), "Entry not found for key");
+        assert_eq!(format!("{not_found}"), "Entry not found for key");
 
         let custom = CacheError::Custom("c".into());
-        assert_eq!(format!("{}", custom), "Custom error: c");
+        assert_eq!(format!("{custom}"), "Custom error: c");
     }
 
     #[cfg(feature = "json-serialization")]
