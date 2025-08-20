@@ -13,60 +13,55 @@ struct TestData {
 }
 
 #[tokio::main]
-#[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn Error>> {
     println!("🚀 Testing ThreatFlux Cache Library");
 
-    // Create a cache with default configuration
+    let cache = setup_cache().await?;
+    println!("✅ Cache created successfully");
+
+    run_basic_operations(&cache).await?;
+
+    println!("🎉 All tests passed! ThreatFlux Cache is working correctly.");
+    Ok(())
+}
+
+async fn setup_cache() -> Result<Cache<String, TestData>, Box<dyn Error>> {
     let config = CacheConfig::default()
         .with_max_entries_per_key(5)
         .with_max_total_entries(100);
+    Cache::with_config(config).await.map_err(Into::into)
+}
 
-    let cache: Cache<String, TestData> = Cache::with_config(config).await?;
-
-    // Test data
+async fn run_basic_operations(cache: &Cache<String, TestData>) -> Result<(), Box<dyn Error>> {
     let test_data = TestData {
         id: 1,
         name: "Test Item".to_string(),
         value: 42,
     };
 
-    println!("✅ Cache created successfully");
-
-    // Test basic operations
     println!("📝 Testing basic cache operations...");
     let key = "test_key".to_string();
 
-    // Put operation
     cache.put(key.clone(), test_data.clone()).await?;
     println!("✅ Put operation successful");
 
-    // Get operation
     assert_eq!(cache.get(&key).await?, Some(test_data.clone()));
     println!("✅ Get operation successful - data matches");
 
-    // Contains operation
     assert!(cache.contains(&key).await?);
     println!("✅ Contains operation successful");
 
-    // Cache statistics
     let len = cache.len().await?;
     println!("📊 Cache has {len} entries");
 
-    // Remove operation
     let removed = cache.remove(&key).await?.expect("Remove operation failed");
     assert_eq!(removed, test_data);
     println!("✅ Remove operation successful");
 
-    // Verify empty after removal
     assert!(cache.is_empty().await?);
     println!("✅ Cache is empty after removal");
 
-    // Clear operation
     cache.clear().await?;
     println!("✅ Clear operation successful");
-
-    println!("🎉 All tests passed! ThreatFlux Cache is working correctly.");
-
     Ok(())
 }
