@@ -19,6 +19,23 @@ pub struct EvictionContext {
     pub current_total_entries: usize,
 }
 
+fn remove_key_by<K, V, M, F, T>(entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>, metric: F)
+where
+    K: Hash + Eq + Clone,
+    V: Clone,
+    M: EntryMetadata,
+    F: Fn(&[CacheEntry<K, V, M>]) -> T,
+    T: Ord,
+{
+    if let Some(key) = entries
+        .iter()
+        .min_by_key(|(_, v)| metric(v))
+        .map(|(k, _)| k.clone())
+    {
+        entries.remove(&key);
+    }
+}
+
 /// Trait for eviction strategies
 #[async_trait]
 pub trait EvictionStrategy<K, V, M>: Send + Sync
@@ -52,109 +69,56 @@ where
     }
 }
 
-/// Least Recently Used eviction
-pub struct LruEviction;
+macro_rules! simple_eviction {
+    ($(#[$meta:meta])* $name:ident, $metric:expr) => {
+        $(#[$meta])*
+        pub struct $name;
 
-#[async_trait]
-impl<K, V, M> EvictionStrategy<K, V, M> for LruEviction
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: EntryMetadata,
-{
-    async fn evict(
-        &self,
-        entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        _context: &EvictionContext,
-    ) {
-        // Find the least recently accessed entry
-        let mut oldest_key: Option<K> = None;
-        let mut oldest_access = Utc::now();
-
-        for (key, entry_vec) in entries.iter() {
-            if let Some(entry) = entry_vec.iter().min_by_key(|e| e.last_accessed) {
-                if entry.last_accessed < oldest_access {
-                    oldest_access = entry.last_accessed;
-                    oldest_key = Some(key.clone());
-                }
+        #[async_trait]
+        impl<K, V, M> EvictionStrategy<K, V, M> for $name
+        where
+            K: Hash + Eq + Clone + Send + Sync,
+            V: Clone + Send + Sync,
+            M: EntryMetadata,
+        {
+            async fn evict(
+                &self,
+                entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
+                _context: &EvictionContext,
+            ) {
+                remove_key_by(entries, $metric);
             }
         }
-
-        // Remove the oldest key's entries
-        if let Some(key) = oldest_key {
-            entries.remove(&key);
-        }
-    }
+    };
 }
 
-/// Least Frequently Used eviction
-pub struct LfuEviction;
-
-#[async_trait]
-impl<K, V, M> EvictionStrategy<K, V, M> for LfuEviction
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: EntryMetadata,
-{
-    async fn evict(
-        &self,
-        entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        _context: &EvictionContext,
-    ) {
-        // Find the least frequently accessed entry
-        let mut least_used_key: Option<K> = None;
-        let mut min_access_count = u64::MAX;
-
-        for (key, entry_vec) in entries.iter() {
-            let total_access: u64 = entry_vec.iter().map(|e| e.access_count).sum();
-            if total_access < min_access_count {
-                min_access_count = total_access;
-                least_used_key = Some(key.clone());
-            }
-        }
-
-        // Remove the least used key's entries
-        if let Some(key) = least_used_key {
-            entries.remove(&key);
-        }
+simple_eviction!(
+    /// Least Recently Used eviction
+    LruEviction,
+    |v: &[CacheEntry<K, V, M>]| {
+        v.iter()
+            .min_by_key(|e| e.last_accessed)
+            .map(|e| e.last_accessed)
+            .unwrap_or_else(Utc::now)
     }
-}
+);
 
-/// First In First Out eviction
-pub struct FifoEviction;
+simple_eviction!(
+    /// Least Frequently Used eviction
+    LfuEviction,
+    |v: &[CacheEntry<K, V, M>]| v.iter().map(|e| e.access_count).sum::<u64>()
+);
 
-#[async_trait]
-impl<K, V, M> EvictionStrategy<K, V, M> for FifoEviction
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: EntryMetadata,
-{
-    async fn evict(
-        &self,
-        entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        _context: &EvictionContext,
-    ) {
-        // Find the oldest entry by creation timestamp
-        let mut oldest_key: Option<K> = None;
-        let mut oldest_timestamp = Utc::now();
-
-        for (key, entry_vec) in entries.iter() {
-            if let Some(entry) = entry_vec.iter().min_by_key(|e| e.timestamp) {
-                if entry.timestamp < oldest_timestamp {
-                    oldest_timestamp = entry.timestamp;
-                    oldest_key = Some(key.clone());
-                }
-            }
-        }
-
-        // Remove the oldest key's entries
-        if let Some(key) = oldest_key {
-            entries.remove(&key);
-        }
+simple_eviction!(
+    /// First In First Out eviction
+    FifoEviction,
+    |v: &[CacheEntry<K, V, M>]| {
+        v.iter()
+            .min_by_key(|e| e.timestamp)
+            .map(|e| e.timestamp)
+            .unwrap_or_else(Utc::now)
     }
-}
+);
 
 /// Time To Live based eviction
 pub struct TtlEviction;
