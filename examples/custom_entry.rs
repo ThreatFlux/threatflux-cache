@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use threatflux_cache::prelude::*;
 use threatflux_cache::{
-    entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery, StorageBackend,
+    entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,11 +35,17 @@ fn make_entry(
     CacheEntry::with_metadata(format!("doc:{id}"), doc, metadata)
 }
 
-type DocCache<B> = Cache<String, Document, BasicMetadata, B>;
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+#[cfg(feature = "filesystem-backend")]
+type Backend = FilesystemBackend<String, Document, BasicMetadata>;
+#[cfg(not(feature = "filesystem-backend"))]
+type Backend = MemoryBackend<String, Document, BasicMetadata>;
+
+type DocCache = Cache<String, Document, BasicMetadata, Backend>;
 
 #[tokio::main]
-#[allow(clippy::type_complexity)]
-async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let cache = build_cache().await?;
     populate_cache(&cache).await?;
     search_and_display(&cache).await;
@@ -47,11 +53,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[allow(clippy::type_complexity)]
-async fn build_cache() -> std::result::Result<
-    DocCache<impl StorageBackend<Key = String, Value = Document, Metadata = BasicMetadata>>,
-    Box<dyn std::error::Error>,
-> {
+async fn build_cache() -> Result<DocCache> {
     let config = CacheConfig::default()
         .with_persistence(PersistenceConfig::with_path("/tmp/document-cache"))
         .with_eviction_policy(EvictionPolicy::Lru);
@@ -64,12 +66,7 @@ async fn build_cache() -> std::result::Result<
     Cache::new(config, backend).await.map_err(Into::into)
 }
 
-async fn populate_cache<B>(
-    cache: &DocCache<B>,
-) -> std::result::Result<(), Box<dyn std::error::Error>>
-where
-    B: StorageBackend<Key = String, Value = Document, Metadata = BasicMetadata>,
-{
+async fn populate_cache(cache: &DocCache) -> Result<()> {
     let docs = [
         (
             "1",
@@ -96,10 +93,7 @@ where
     Ok(())
 }
 
-async fn search_and_display<B>(cache: &DocCache<B>)
-where
-    B: StorageBackend<Key = String, Value = Document, Metadata = BasicMetadata>,
-{
+async fn search_and_display(cache: &DocCache) {
     let query = SearchQuery::new()
         .with_pattern("doc")
         .with_category("tutorial");
@@ -114,10 +108,7 @@ where
     }
 }
 
-async fn show_entries<B>(cache: &DocCache<B>) -> std::result::Result<(), Box<dyn std::error::Error>>
-where
-    B: StorageBackend<Key = String, Value = Document, Metadata = BasicMetadata>,
-{
+async fn show_entries(cache: &DocCache) -> Result<()> {
     if let Some(entries) = cache.get_entries(&"doc:1".to_string()).await {
         for entry in entries {
             println!(
