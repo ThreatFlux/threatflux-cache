@@ -11,6 +11,28 @@ struct Document {
     content: String,
 }
 
+fn make_entry(
+    id: &str,
+    title: &str,
+    content: &str,
+    category: &str,
+    tags: &[&str],
+    exec_time: u64,
+) -> CacheEntry<String, Document, BasicMetadata> {
+    let doc = Document {
+        id: format!("doc{id}"),
+        title: title.to_string(),
+        content: content.to_string(),
+    };
+    let metadata = BasicMetadata {
+        execution_time_ms: Some(exec_time),
+        size_bytes: Some(doc.content.len() as u64),
+        category: Some(category.to_string()),
+        tags: tags.iter().map(|t| (*t).to_string()).collect(),
+    };
+    CacheEntry::with_metadata(format!("doc:{id}"), doc, metadata)
+}
+
 #[tokio::main]
 #[allow(clippy::type_complexity)]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
@@ -28,40 +50,29 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let cache: Cache<String, Document, BasicMetadata, _> = Cache::new(config, backend).await?;
 
     // Create documents with metadata
-    let doc1 = Document {
-        id: "doc1".to_string(),
-        title: "Introduction to Rust".to_string(),
-        content: "Rust is a systems programming language...".to_string(),
-    };
-
-    let metadata1 = BasicMetadata {
-        execution_time_ms: Some(45),
-        size_bytes: Some(doc1.content.len() as u64),
-        category: Some("tutorial".to_string()),
-        tags: vec!["rust".to_string(), "programming".to_string()],
-    };
-
-    let entry1 = CacheEntry::with_metadata("doc:1".to_string(), doc1, metadata1);
-
-    cache.add_entry(entry1).await?;
-
-    // Add more documents
-    let doc2 = Document {
-        id: "doc2".to_string(),
-        title: "Advanced Rust Patterns".to_string(),
-        content: "This document covers advanced patterns...".to_string(),
-    };
-
-    let metadata2 = BasicMetadata {
-        execution_time_ms: Some(30),
-        size_bytes: Some(doc2.content.len() as u64),
-        category: Some("advanced".to_string()),
-        tags: vec!["rust".to_string(), "patterns".to_string()],
-    };
-
-    let entry2 = CacheEntry::with_metadata("doc:2".to_string(), doc2, metadata2);
-
-    cache.add_entry(entry2).await?;
+    let docs = [
+        (
+            "1",
+            "Introduction to Rust",
+            "Rust is a systems programming language...",
+            "tutorial",
+            &["rust", "programming"][..],
+            45,
+        ),
+        (
+            "2",
+            "Advanced Rust Patterns",
+            "This document covers advanced patterns...",
+            "advanced",
+            &["rust", "patterns"][..],
+            30,
+        ),
+    ];
+    for (id, title, content, category, tags, exec) in docs {
+        cache
+            .add_entry(make_entry(id, title, content, category, tags, exec))
+            .await?;
+    }
 
     // Search for documents
     let query = SearchQuery::new()
@@ -70,7 +81,6 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
     let results = cache.search(&query).await;
     println!("Found {} documents matching query", results.len());
-
     for result in results {
         println!(
             "- {} (category: {:?})",

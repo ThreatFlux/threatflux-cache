@@ -141,57 +141,24 @@ where
     type Query = SearchQuery;
 
     fn matches(&self, query: &Self::Query) -> bool {
-        // Check expiry
-        if !query.include_expired && self.is_expired() {
-            return false;
-        }
-
-        // Check pattern in key
-        if let Some(ref pattern) = query.pattern {
-            let key_str = self.key.to_string();
-            if !key_str.contains(pattern) {
-                return false;
-            }
-        }
-
-        // Check timestamp range
-        if let Some(min_ts) = query.min_timestamp {
-            if self.timestamp < min_ts {
-                return false;
-            }
-        }
-
-        if let Some(max_ts) = query.max_timestamp {
-            if self.timestamp > max_ts {
-                return false;
-            }
-        }
-
-        // Check access count range
-        if let Some(min_count) = query.min_access_count {
-            if self.access_count < min_count {
-                return false;
-            }
-        }
-
-        if let Some(max_count) = query.max_access_count {
-            if self.access_count > max_count {
-                return false;
-            }
-        }
-
-        // Check category
-        if let Some(ref category) = query.category {
-            if let Some(entry_category) = self.metadata.category() {
-                if entry_category != category {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
-
-        true
+        let key_str = self.key.to_string();
+        (query.include_expired || !self.is_expired())
+            && query.pattern.as_ref().map_or(true, |p| key_str.contains(p))
+            && query
+                .min_timestamp
+                .map_or(true, |min| self.timestamp >= min)
+            && query
+                .max_timestamp
+                .map_or(true, |max| self.timestamp <= max)
+            && query
+                .min_access_count
+                .map_or(true, |min| self.access_count >= min)
+            && query
+                .max_access_count
+                .map_or(true, |max| self.access_count <= max)
+            && query.category.as_ref().map_or(true, |category| {
+                self.metadata.category().is_some_and(|c| c == category)
+            })
     }
 }
 

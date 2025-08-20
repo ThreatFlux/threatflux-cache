@@ -38,14 +38,15 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     cache.put("user:2".to_string(), user2.clone()).await?;
 
     // Retrieve a user
-    if let Some(user) = cache.get(&"user:1".to_string()).await? {
-        println!("Found user: {user:?}");
-    }
+    let user = cache
+        .get(&"user:1".to_string())
+        .await?
+        .expect("user not found");
+    println!("Found user: {user:?}");
 
     // Check if a key exists
-    if cache.contains(&"user:2".to_string()).await? {
-        println!("User 2 exists in cache");
-    }
+    assert!(cache.contains(&"user:2".to_string()).await?);
+    println!("User 2 exists in cache");
 
     // Get cache statistics
     let stats = cache.get_stats().await;
@@ -55,9 +56,11 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     );
 
     // Remove a user
-    if let Some(removed) = cache.remove(&"user:1".to_string()).await? {
-        println!("Removed user: {removed:?}");
-    }
+    let removed = cache
+        .remove(&"user:1".to_string())
+        .await?
+        .expect("user not found");
+    println!("Removed user: {removed:?}");
 
     // Clear the cache
     cache.clear().await?;
