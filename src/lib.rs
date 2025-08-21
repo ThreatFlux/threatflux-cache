@@ -57,6 +57,9 @@ pub mod storage;
 #[cfg(feature = "metrics")]
 pub mod metrics;
 
+#[cfg(test)]
+pub(crate) mod test_utils;
+
 // Re-export main types
 pub use cache::{AsyncCache, Cache};
 pub use config::{CacheConfig, EvictionPolicy, PersistenceConfig};

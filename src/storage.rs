@@ -122,7 +122,6 @@ pub struct StorageStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_trait::async_trait;
     #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
     #[test]
     fn test_serialization_format_extension() {
@@ -156,52 +155,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_default_storage_methods() {
+        use crate::test_utils::TestBackend;
         use std::collections::HashMap;
-        use std::sync::Arc;
-        use tokio::sync::RwLock;
 
-        #[derive(Default)]
-        #[allow(clippy::type_complexity)]
-        struct DummyBackend {
-            entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
-        }
-
-        #[async_trait]
-        impl StorageBackend for DummyBackend {
-            type Key = String;
-            type Value = String;
-            type Metadata = ();
-
-            async fn save(
-                &self,
-                entries: &HashMap<
-                    Self::Key,
-                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
-                >,
-            ) -> Result<()> {
-                *self.entries.write().await = entries.clone();
-                Ok(())
-            }
-
-            async fn load(
-                &self,
-            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
-            {
-                Ok(self.entries.read().await.clone())
-            }
-
-            async fn remove(&self, key: &Self::Key) -> Result<()> {
-                self.entries.write().await.remove(key);
-                Ok(())
-            }
-
-            async fn clear(&self) -> Result<()> {
-                self.entries.write().await.clear();
-                Ok(())
-            }
-        }
-
-        let backend = DummyBackend::default();
+        let backend = TestBackend::default();
         let mut map = HashMap::new();
         map.insert(
             "a".to_string(),
