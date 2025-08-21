@@ -69,11 +69,8 @@ where
     }
 }
 
-macro_rules! simple_eviction {
-    ($(#[$meta:meta])* $name:ident, $metric:expr) => {
-        $(#[$meta])*
-        pub struct $name;
-
+macro_rules! impl_eviction_strategy {
+    ($name:ident, $ctx:ident, $entries:ident, $body:block) => {
         #[async_trait]
         impl<K, V, M> EvictionStrategy<K, V, M> for $name
         where
@@ -83,12 +80,21 @@ macro_rules! simple_eviction {
         {
             async fn evict(
                 &self,
-                entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-                _context: &EvictionContext,
-            ) {
-                remove_key_by(entries, $metric);
-            }
+                $entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
+                $ctx: &EvictionContext,
+            ) $body
         }
+    };
+}
+
+macro_rules! simple_eviction {
+    ($(#[$meta:meta])* $name:ident, $metric:expr) => {
+        $(#[$meta])*
+        pub struct $name;
+
+        impl_eviction_strategy!($name, _context, entries, {
+            remove_key_by(entries, $metric);
+        });
     };
 }
 
@@ -123,56 +129,39 @@ simple_eviction!(
 /// Time To Live based eviction
 pub struct TtlEviction;
 
-#[async_trait]
-impl<K, V, M> EvictionStrategy<K, V, M> for TtlEviction
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: EntryMetadata,
-{
-    async fn evict(
-        &self,
-        entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        context: &EvictionContext,
-    ) {
-        for key in entries.keys().cloned().collect::<Vec<_>>() {
-            if let Some(vec) = entries.get_mut(&key) {
-                vec.retain(|e| !e.is_expired());
-                if vec.is_empty() {
-                    entries.remove(&key);
-                }
+impl_eviction_strategy!(TtlEviction, context, entries, {
+    for key in entries.keys().cloned().collect::<Vec<_>>() {
+        if let Some(vec) = entries.get_mut(&key) {
+            vec.retain(|e| !e.is_expired());
+            if vec.is_empty() {
+                entries.remove(&key);
             }
         }
-        let total_entries: usize = entries.values().map(|v| v.len()).sum();
-        if total_entries > context.max_total_entries {
-            FifoEviction.evict(entries, context).await;
-        }
     }
-}
+    let total_entries: usize = entries.values().map(|v| v.len()).sum();
+    if total_entries > context.max_total_entries {
+        FifoEviction.evict(entries, context).await;
+    }
+});
 
 /// No eviction (manual only)
 pub struct NoEviction;
 
-#[async_trait]
-impl<K, V, M> EvictionStrategy<K, V, M> for NoEviction
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: EntryMetadata,
-{
-    async fn evict(
-        &self,
-        _entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
-        _context: &EvictionContext,
-    ) {
-        // No automatic eviction
-    }
-}
+impl_eviction_strategy!(NoEviction, _context, _entries, {
+    // No automatic eviction
+});
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use chrono::Duration;
+
+    fn small_context() -> EvictionContext {
+        EvictionContext {
+            max_total_entries: 1,
+            current_total_entries: 2,
+        }
+    }
 
     #[allow(clippy::type_complexity)]
     fn create_test_entry<K: Clone + std::hash::Hash + Eq, V: Clone>(
@@ -196,10 +185,7 @@ mod tests {
         entries.insert("key2".to_string(), vec![entry2]);
 
         let eviction = LruEviction;
-        let context = EvictionContext {
-            max_total_entries: 1,
-            current_total_entries: 2,
-        };
+        let context = small_context();
 
         eviction.evict(&mut entries, &context).await;
 
@@ -222,10 +208,7 @@ mod tests {
         entries.insert("key2".to_string(), vec![entry2]);
 
         let eviction = LfuEviction;
-        let context = EvictionContext {
-            max_total_entries: 1,
-            current_total_entries: 2,
-        };
+        let context = small_context();
 
         eviction.evict(&mut entries, &context).await;
 
@@ -248,10 +231,7 @@ mod tests {
         entries.insert("key2".to_string(), vec![entry2]);
 
         let eviction = FifoEviction;
-        let context = EvictionContext {
-            max_total_entries: 1,
-            current_total_entries: 2,
-        };
+        let context = small_context();
 
         eviction.evict(&mut entries, &context).await;
 
