@@ -51,3 +51,37 @@ impl StorageBackend for TestBackend {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_remove_and_clear() {
+        let backend = TestBackend::default();
+
+        // Prepopulate with two keys
+        backend
+            .save(&HashMap::from([
+                (
+                    "k1".to_string(),
+                    vec![CacheEntry::new("k1".to_string(), "v1".to_string())],
+                ),
+                (
+                    "k2".to_string(),
+                    vec![CacheEntry::new("k2".to_string(), "v2".to_string())],
+                ),
+            ]))
+            .await
+            .unwrap();
+
+        // Removing a key updates the entries map
+        backend.remove(&"k1".to_string()).await.unwrap();
+        assert!(!backend.entries.read().await.contains_key("k1"));
+
+        // Clearing removes all remaining entries
+        backend.clear().await.unwrap();
+        assert!(backend.entries.read().await.is_empty());
+    }
+}
