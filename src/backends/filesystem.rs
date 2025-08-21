@@ -3,11 +3,11 @@
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
+use crate::backends::{BackendKey, BackendMeta, BackendValue};
 use crate::{storage::SerializationFormat, CacheEntry, EntryMetadata, Result, StorageBackend};
 
 /// Type alias for complex phantom data type
@@ -15,23 +15,13 @@ type PhantomTypes<K, V, M> = std::marker::PhantomData<(K, V, M)>;
 
 /// Filesystem storage backend
 #[allow(clippy::type_complexity)]
-pub struct FilesystemBackend<K, V, M = ()>
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: Clone + Send + Sync,
-{
+pub struct FilesystemBackend<K: BackendKey, V: BackendValue, M: BackendMeta = ()> {
     base_path: PathBuf,
     format: SerializationFormat,
     _phantom: PhantomTypes<K, V, M>,
 }
 
-impl<K, V, M> FilesystemBackend<K, V, M>
-where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
-    M: Clone + Send + Sync,
-{
+impl<K: BackendKey, V: BackendValue, M: BackendMeta> FilesystemBackend<K, V, M> {
     /// Create a new filesystem backend with the given base path
     pub async fn new<P: AsRef<Path>>(base_path: P) -> Result<Self> {
         let base_path = base_path.as_ref().to_path_buf();
@@ -110,9 +100,9 @@ where
 #[async_trait]
 impl<K, V, M> StorageBackend for FilesystemBackend<K, V, M>
 where
-    K: Serialize + DeserializeOwned + Hash + Eq + Clone + Send + Sync + std::fmt::Display + 'static,
-    V: Serialize + DeserializeOwned + Clone + Send + Sync + 'static,
-    M: Serialize + DeserializeOwned + Clone + Send + Sync + EntryMetadata,
+    K: BackendKey + Serialize + DeserializeOwned + std::fmt::Display + 'static,
+    V: BackendValue + Serialize + DeserializeOwned + 'static,
+    M: BackendMeta + Serialize + DeserializeOwned + EntryMetadata,
 {
     type Key = K;
     type Value = V;
@@ -225,6 +215,12 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    async fn new_backend() -> (TempDir, FilesystemBackend<String, String>) {
+        let temp_dir = TempDir::new().unwrap();
+        let backend = FilesystemBackend::new(temp_dir.path()).await.unwrap();
+        (temp_dir, backend)
+    }
+
     #[tokio::test]
     async fn test_filesystem_backend_persistence() {
         let temp_dir = TempDir::new().unwrap();
@@ -259,9 +255,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_filesystem_backend_size() {
-        let temp_dir = TempDir::new().unwrap();
-        let backend: FilesystemBackend<String, String> =
-            FilesystemBackend::new(temp_dir.path()).await.unwrap();
+        let (_temp_dir, backend) = new_backend().await;
 
         // Save some data
         let mut entries = HashMap::new();
@@ -279,9 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_path_traversal_protection() {
-        let temp_dir = TempDir::new().unwrap();
-        let backend: FilesystemBackend<String, String> =
-            FilesystemBackend::new(temp_dir.path()).await.unwrap();
+        let (_temp_dir, backend) = new_backend().await;
 
         // Test malicious keys that could attempt path traversal
         let malicious_keys = vec![
