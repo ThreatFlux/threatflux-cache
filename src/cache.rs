@@ -22,12 +22,28 @@ type EvictionStrategyBox<K, V, M> = Box<dyn EvictionStrategy<K, V, M>>;
 /// Type alias for cache entry
 type Entry<K, V, M> = CacheEntry<K, V, M>;
 
+/// Common bounds for cache keys
+pub trait CacheKey: Hash + Eq + Clone + Send + Sync + 'static {}
+impl<T> CacheKey for T where T: Hash + Eq + Clone + Send + Sync + 'static {}
+
+/// Common bounds for cache values
+pub trait CacheValue: Clone + Send + Sync + 'static {}
+impl<T> CacheValue for T where T: Clone + Send + Sync + 'static {}
+
+/// Serializable key bounds
+pub trait CacheKeySer: CacheKey + Serialize + DeserializeOwned {}
+impl<T> CacheKeySer for T where T: CacheKey + Serialize + DeserializeOwned {}
+
+/// Serializable value bounds
+pub trait CacheValueSer: CacheValue + Serialize + DeserializeOwned {}
+impl<T> CacheValueSer for T where T: CacheValue + Serialize + DeserializeOwned {}
+
 /// Async cache trait defining the core cache operations
 #[async_trait]
 pub trait AsyncCache<K, V>: Send + Sync
 where
-    K: Hash + Eq + Clone + Send + Sync,
-    V: Clone + Send + Sync,
+    K: CacheKey,
+    V: CacheValue,
 {
     /// Error type for cache operations
     type Error;
@@ -60,8 +76,8 @@ where
 #[allow(clippy::type_complexity)]
 pub struct Cache<K, V, M = (), B = crate::backends::memory::MemoryBackend<K, V, M>>
 where
-    K: Hash + Eq + Clone + Send + Sync + 'static,
-    V: Clone + Send + Sync + 'static,
+    K: CacheKey,
+    V: CacheValue,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -75,8 +91,8 @@ where
 
 impl<K, V, M, B> Cache<K, V, M, B>
 where
-    K: Hash + Eq + Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
-    V: Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
+    K: CacheKeySer,
+    V: CacheValueSer,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -251,8 +267,8 @@ where
 // Implement Clone for Cache
 impl<K, V, M, B> Clone for Cache<K, V, M, B>
 where
-    K: Hash + Eq + Clone + Send + Sync + 'static,
-    V: Clone + Send + Sync + 'static,
+    K: CacheKey,
+    V: CacheValue,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -272,8 +288,8 @@ where
 #[async_trait]
 impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
 where
-    K: Hash + Eq + Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
-    V: Clone + Send + Sync + Serialize + DeserializeOwned + 'static,
+    K: CacheKeySer,
+    V: CacheValueSer,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -334,8 +350,8 @@ where
 // Implement Drop to save on shutdown
 impl<K, V, M, B> Drop for Cache<K, V, M, B>
 where
-    K: Hash + Eq + Clone + Send + Sync + 'static,
-    V: Clone + Send + Sync + 'static,
+    K: CacheKey,
+    V: CacheValue,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -377,11 +393,15 @@ mod tests {
     use crate::backends::memory::MemoryBackend;
     use crate::SearchQuery;
 
-    #[tokio::test]
-    async fn test_cache_basic_operations() {
+    async fn create_cache() -> Cache<String, String> {
         let config = CacheConfig::default();
         let backend = MemoryBackend::new();
-        let cache: Cache<String, String> = Cache::new(config, backend).await.unwrap();
+        Cache::new(config, backend).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_cache_basic_operations() {
+        let cache = create_cache().await;
 
         // Test put and get
         cache
@@ -406,9 +426,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_clear() {
-        let config = CacheConfig::default();
-        let backend = MemoryBackend::new();
-        let cache: Cache<String, String> = Cache::new(config, backend).await.unwrap();
+        let cache = create_cache().await;
 
         cache
             .put("key1".to_string(), "value1".to_string())
@@ -428,9 +446,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_entries_search_stats() {
-        let config = CacheConfig::default();
-        let backend = MemoryBackend::new();
-        let cache: Cache<String, String> = Cache::new(config, backend).await.unwrap();
+        let cache = create_cache().await;
 
         cache
             .add_entry(CacheEntry::new("key".to_string(), "v1".to_string()))
@@ -463,55 +479,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_cache_persistence() {
-        use std::sync::Arc;
-        use tokio::sync::RwLock;
+        use crate::test_utils::TestBackend;
 
-        #[derive(Clone, Default)]
-        #[allow(clippy::type_complexity)]
-        struct MockBackend {
-            entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
-            save_calls: Arc<RwLock<usize>>,
-            load_calls: Arc<RwLock<usize>>,
-        }
-
-        #[async_trait::async_trait]
-        impl StorageBackend for MockBackend {
-            type Key = String;
-            type Value = String;
-            type Metadata = ();
-
-            async fn save(
-                &self,
-                entries: &HashMap<
-                    Self::Key,
-                    Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>,
-                >,
-            ) -> Result<()> {
-                *self.save_calls.write().await += 1;
-                *self.entries.write().await = entries.clone();
-                Ok(())
-            }
-
-            async fn load(
-                &self,
-            ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>
-            {
-                *self.load_calls.write().await += 1;
-                Ok(self.entries.read().await.clone())
-            }
-
-            async fn remove(&self, key: &Self::Key) -> Result<()> {
-                self.entries.write().await.remove(key);
-                Ok(())
-            }
-
-            async fn clear(&self) -> Result<()> {
-                self.entries.write().await.clear();
-                Ok(())
-            }
-        }
-
-        let backend = MockBackend::default();
+        let backend = TestBackend::default();
         // Preload backend
         backend
             .save(&HashMap::from([(
@@ -526,7 +496,7 @@ mod tests {
         config.persistence.load_on_startup = true;
         config.persistence.sync_interval = 1;
 
-        let cache: Cache<String, String, (), MockBackend> =
+        let cache: Cache<String, String, (), TestBackend> =
             Cache::new(config, backend.clone()).await.unwrap();
         // Loaded entry should be present
         assert!(cache.contains(&"loaded".to_string()).await.unwrap());
