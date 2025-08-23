@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::backends::{BackendKey, BackendMeta, BackendValue};
+use crate::storage::EntryMap;
 use crate::{CacheEntry, EntryMetadata, Result, StorageBackend};
 
 /// In-memory storage backend
@@ -49,13 +50,13 @@ where
     type Value = V;
     type Metadata = M;
 
-    async fn save(&self, entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>) -> Result<()> {
+    async fn save(&self, entries: &EntryMap<K, V, M>) -> Result<()> {
         let mut data = self.data.write().await;
         *data = entries.clone();
         Ok(())
     }
 
-    async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
+    async fn load(&self) -> Result<EntryMap<K, V, M>> {
         let data = self.data.read().await;
         Ok(data.clone())
     }

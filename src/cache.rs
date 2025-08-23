@@ -36,21 +36,6 @@ macro_rules! impl_cache_common {
     };
 }
 
-macro_rules! impl_cache_async_trait {
-    ($($body:tt)*) => {
-        #[async_trait]
-        impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
-        where
-            K: CacheKeySer,
-            V: CacheValueSer,
-            M: EntryMetadata + Default,
-            B: StorageBackend<Key = K, Value = V, Metadata = M>,
-        {
-            $($body)*
-        }
-    };
-}
-
 /// Common bounds for cache keys
 pub trait CacheKey: Hash + Eq + Clone + Send + Sync + 'static {}
 impl<T> CacheKey for T where T: Hash + Eq + Clone + Send + Sync + 'static {}
@@ -307,7 +292,14 @@ impl_cache_common!(
     }
 );
 
-impl_cache_async_trait!(
+#[async_trait]
+impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
+where
+    K: CacheKeySer,
+    V: CacheValueSer,
+    M: EntryMetadata + Default,
+    B: StorageBackend<Key = K, Value = V, Metadata = M>,
+{
     type Error = CacheError;
 
     async fn get(&self, key: &K) -> std::result::Result<Option<V>, Self::Error> {
@@ -360,7 +352,7 @@ impl_cache_async_trait!(
         let entries = self.entries.read().await;
         Ok(entries.values().map(|v| v.len()).sum())
     }
-);
+}
 
 impl_cache_common!(
     Drop,

@@ -8,7 +8,10 @@ use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
 use crate::backends::{BackendKey, BackendMeta, BackendValue};
-use crate::{storage::SerializationFormat, CacheEntry, EntryMetadata, Result, StorageBackend};
+use crate::{
+    storage::{EntryMap, SerializationFormat},
+    CacheEntry, EntryMetadata, Result, StorageBackend,
+};
 
 /// Type alias for complex phantom data type
 type PhantomTypes<K, V, M> = std::marker::PhantomData<(K, V, M)>;
@@ -120,7 +123,7 @@ where
     type Value = V;
     type Metadata = M;
 
-    async fn save(&self, entries: &HashMap<K, Vec<CacheEntry<K, V, M>>>) -> Result<()> {
+    async fn save(&self, entries: &EntryMap<K, V, M>) -> Result<()> {
         for (key, entry_vec) in entries {
             let file_path = self.get_cache_file_path(&key.to_string());
             let data = self.format.serialize(entry_vec)?;
@@ -135,8 +138,8 @@ where
         self.write_data(self.get_metadata_path(), &data).await
     }
 
-    async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
-        let mut entries = HashMap::new();
+    async fn load(&self) -> Result<EntryMap<K, V, M>> {
+        let mut entries: EntryMap<K, V, M> = HashMap::new();
         for path in self.cache_file_paths().await? {
             let data = match fs::read(&path).await {
                 Ok(d) => d,
