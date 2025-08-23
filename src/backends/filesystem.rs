@@ -110,6 +110,33 @@ impl<K: BackendKey, V: BackendValue, M: BackendMeta> FilesystemBackend<K, V, M> 
         }
         Ok(paths)
     }
+
+    async fn load_entry_from_path(&self, path: &Path) -> Option<(K, Vec<CacheEntry<K, V, M>>)>
+    where
+        K: Serialize + DeserializeOwned + std::fmt::Display,
+        V: Serialize + DeserializeOwned,
+        M: Serialize + DeserializeOwned + EntryMetadata,
+    {
+        let data = match fs::read(path).await {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("Failed to read cache file {path:?}: {e}");
+                return None;
+            }
+        };
+        let entry_vec: Vec<CacheEntry<K, V, M>> = match self.format.deserialize(&data) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to deserialize cache file {path:?}: {e}");
+                return None;
+            }
+        };
+        let key = match entry_vec.first() {
+            Some(first) => first.key.clone(),
+            None => return None,
+        };
+        Some((key, entry_vec))
+    }
 }
 
 #[async_trait]
@@ -141,22 +168,8 @@ where
     async fn load(&self) -> Result<EntryMap<K, V, M>> {
         let mut entries: EntryMap<K, V, M> = HashMap::new();
         for path in self.cache_file_paths().await? {
-            let data = match fs::read(&path).await {
-                Ok(d) => d,
-                Err(e) => {
-                    eprintln!("Failed to read cache file {path:?}: {e}");
-                    continue;
-                }
-            };
-            let entry_vec: Vec<CacheEntry<K, V, M>> = match self.format.deserialize(&data) {
-                Ok(v) => v,
-                Err(e) => {
-                    eprintln!("Failed to deserialize cache file {path:?}: {e}");
-                    continue;
-                }
-            };
-            if let Some(first_entry) = entry_vec.first() {
-                entries.insert(first_entry.key.clone(), entry_vec);
+            if let Some((key, entry_vec)) = self.load_entry_from_path(&path).await {
+                entries.insert(key, entry_vec);
             }
         }
         Ok(entries)
@@ -272,6 +285,32 @@ mod tests {
         // Check size is non-zero
         let size = backend.size_bytes().await.unwrap();
         assert!(size > 0);
+    }
+
+    #[tokio::test]
+    async fn test_load_skips_corrupted_files() {
+        let (_temp_dir, backend) = new_backend().await;
+
+        // Create a corrupt cache file
+        let bad_path = backend.get_cache_file_path("bad");
+        let mut file = File::create(&bad_path).await.unwrap();
+        file.write_all(b"not valid").await.unwrap();
+        file.flush().await.unwrap();
+
+        // Save a valid entry
+        let mut entries = HashMap::new();
+        entries.insert(
+            "good".to_string(),
+            vec![CacheEntry::new("good".to_string(), "value".to_string())],
+        );
+        backend.save(&entries).await.unwrap();
+
+        let loaded = backend.load().await.unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert!(loaded.contains_key("good"));
+
+        // Ensure corrupt file was not loaded
+        assert!(!loaded.contains_key("bad"));
     }
 
     #[tokio::test]
