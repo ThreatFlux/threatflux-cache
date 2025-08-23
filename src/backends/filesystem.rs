@@ -95,6 +95,18 @@ impl<K: BackendKey, V: BackendValue, M: BackendMeta> FilesystemBackend<K, V, M> 
         path.extension().and_then(|s| s.to_str()) == Some(self.format.extension())
             && path.file_stem().and_then(|s| s.to_str()) != Some("metadata")
     }
+
+    async fn cache_file_paths(&self) -> Result<Vec<PathBuf>> {
+        let mut paths = Vec::new();
+        let mut dir_entries = fs::read_dir(&self.base_path).await?;
+        while let Some(entry) = dir_entries.next_entry().await? {
+            let path = entry.path();
+            if self.is_cache_file_path(&path) {
+                paths.push(path);
+            }
+        }
+        Ok(paths)
+    }
 }
 
 #[async_trait]
@@ -125,12 +137,7 @@ where
 
     async fn load(&self) -> Result<HashMap<K, Vec<CacheEntry<K, V, M>>>> {
         let mut entries = HashMap::new();
-        let mut dir_entries = fs::read_dir(&self.base_path).await?;
-        while let Some(entry) = dir_entries.next_entry().await? {
-            let path = entry.path();
-            if !self.is_cache_file_path(&path) {
-                continue;
-            }
+        for path in self.cache_file_paths().await? {
             let data = match fs::read(&path).await {
                 Ok(d) => d,
                 Err(e) => {
@@ -161,15 +168,8 @@ where
     }
 
     async fn clear(&self) -> Result<()> {
-        let mut dir_entries = fs::read_dir(&self.base_path).await?;
-
-        while let Some(entry) = dir_entries.next_entry().await? {
-            let path = entry.path();
-
-            // Only remove cache files
-            if path.extension().and_then(|s| s.to_str()) == Some(self.format.extension()) {
-                fs::remove_file(&path).await?;
-            }
+        for path in self.cache_file_paths().await? {
+            fs::remove_file(&path).await?;
         }
 
         Ok(())

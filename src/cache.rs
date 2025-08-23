@@ -22,6 +22,35 @@ type EvictionStrategyBox<K, V, M> = Box<dyn EvictionStrategy<K, V, M>>;
 /// Type alias for cache entry
 type Entry<K, V, M> = CacheEntry<K, V, M>;
 
+macro_rules! impl_cache_common {
+    ($trait:ident, $($body:tt)*) => {
+        impl<K, V, M, B> $trait for Cache<K, V, M, B>
+        where
+            K: CacheKey,
+            V: CacheValue,
+            M: EntryMetadata + Default,
+            B: StorageBackend<Key = K, Value = V, Metadata = M>,
+        {
+            $($body)*
+        }
+    };
+}
+
+macro_rules! impl_cache_async_trait {
+    ($($body:tt)*) => {
+        #[async_trait]
+        impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
+        where
+            K: CacheKeySer,
+            V: CacheValueSer,
+            M: EntryMetadata + Default,
+            B: StorageBackend<Key = K, Value = V, Metadata = M>,
+        {
+            $($body)*
+        }
+    };
+}
+
 /// Common bounds for cache keys
 pub trait CacheKey: Hash + Eq + Clone + Send + Sync + 'static {}
 impl<T> CacheKey for T where T: Hash + Eq + Clone + Send + Sync + 'static {}
@@ -264,14 +293,8 @@ where
     }
 }
 
-// Implement Clone for Cache
-impl<K, V, M, B> Clone for Cache<K, V, M, B>
-where
-    K: CacheKey,
-    V: CacheValue,
-    M: EntryMetadata + Default,
-    B: StorageBackend<Key = K, Value = V, Metadata = M>,
-{
+impl_cache_common!(
+    Clone,
     fn clone(&self) -> Self {
         Self {
             entries: Arc::clone(&self.entries),
@@ -282,17 +305,9 @@ where
             eviction_strategy: crate::eviction::create_strategy(&self.config.eviction_policy),
         }
     }
-}
+);
 
-// Implement AsyncCache trait
-#[async_trait]
-impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
-where
-    K: CacheKeySer,
-    V: CacheValueSer,
-    M: EntryMetadata + Default,
-    B: StorageBackend<Key = K, Value = V, Metadata = M>,
-{
+impl_cache_async_trait!(
     type Error = CacheError;
 
     async fn get(&self, key: &K) -> std::result::Result<Option<V>, Self::Error> {
@@ -345,16 +360,10 @@ where
         let entries = self.entries.read().await;
         Ok(entries.values().map(|v| v.len()).sum())
     }
-}
+);
 
-// Implement Drop to save on shutdown
-impl<K, V, M, B> Drop for Cache<K, V, M, B>
-where
-    K: CacheKey,
-    V: CacheValue,
-    M: EntryMetadata + Default,
-    B: StorageBackend<Key = K, Value = V, Metadata = M>,
-{
+impl_cache_common!(
+    Drop,
     fn drop(&mut self) {
         if self.config.persistence.enabled && self.config.persistence.save_on_drop {
             // Try to save synchronously in drop
@@ -370,7 +379,7 @@ where
             }
         }
     }
-}
+);
 
 /// Cache statistics
 #[derive(Debug, Clone, Default)]
