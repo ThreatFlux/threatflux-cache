@@ -22,6 +22,9 @@ where
     entries.insert("key1".to_string(), vec![entry]);
 
     backend.save(&entries).await.unwrap();
+    let size = backend.size_bytes().await.unwrap();
+    assert!(size > 0);
+
     let loaded = backend.load().await.unwrap();
     assert_eq!(loaded.len(), 1);
     assert!(loaded.contains_key("key1"));
@@ -34,11 +37,14 @@ where
     backend.remove(&"key1".to_string()).await.unwrap();
     assert!(!backend.contains(&"key1".to_string()).await.unwrap());
 
-    // Test clear
+    // Test clear and compaction
     backend.save(&entries).await.unwrap();
+    backend.compact().await.unwrap();
     backend.clear().await.unwrap();
     let loaded = backend.load().await.unwrap();
     assert!(loaded.is_empty());
+    let size_after_clear = backend.size_bytes().await.unwrap();
+    assert!(size_after_clear <= size);
 }
 
 #[tokio::test]

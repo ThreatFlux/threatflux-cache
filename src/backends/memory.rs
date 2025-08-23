@@ -1,22 +1,31 @@
 //! In-memory storage backend
 
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::backends::{BackendKey, BackendMeta, BackendValue};
+use crate::backends::{StorageKey, StorageMeta, StorageValue};
 use crate::storage::EntryMap;
-use crate::{CacheEntry, EntryMetadata, Result, StorageBackend};
+use crate::{CacheEntry, Result, StorageBackend};
 
 /// In-memory storage backend
 #[allow(clippy::type_complexity)]
-pub struct MemoryBackend<K: BackendKey, V: BackendValue, M: BackendMeta = ()> {
+pub struct MemoryBackend<K, V, M = ()>
+where
+    K: StorageKey,
+    V: StorageValue,
+    M: StorageMeta,
+{
     data: Arc<RwLock<HashMap<K, Vec<CacheEntry<K, V, M>>>>>,
 }
 
-impl<K: BackendKey, V: BackendValue, M: BackendMeta> MemoryBackend<K, V, M> {
+impl<K, V, M> MemoryBackend<K, V, M>
+where
+    K: StorageKey,
+    V: StorageValue,
+    M: StorageMeta,
+{
     /// Create a new memory backend
     pub fn new() -> Self {
         Self {
@@ -25,13 +34,23 @@ impl<K: BackendKey, V: BackendValue, M: BackendMeta> MemoryBackend<K, V, M> {
     }
 }
 
-impl<K: BackendKey, V: BackendValue, M: BackendMeta> Default for MemoryBackend<K, V, M> {
+impl<K, V, M> Default for MemoryBackend<K, V, M>
+where
+    K: StorageKey,
+    V: StorageValue,
+    M: StorageMeta,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K: BackendKey, V: BackendValue, M: BackendMeta> Clone for MemoryBackend<K, V, M> {
+impl<K, V, M> Clone for MemoryBackend<K, V, M>
+where
+    K: StorageKey,
+    V: StorageValue,
+    M: StorageMeta,
+{
     fn clone(&self) -> Self {
         Self {
             data: Arc::clone(&self.data),
@@ -42,9 +61,9 @@ impl<K: BackendKey, V: BackendValue, M: BackendMeta> Clone for MemoryBackend<K, 
 #[async_trait]
 impl<K, V, M> StorageBackend for MemoryBackend<K, V, M>
 where
-    K: BackendKey + Serialize + DeserializeOwned + 'static,
-    V: BackendValue + Serialize + DeserializeOwned + 'static,
-    M: BackendMeta + Serialize + DeserializeOwned + EntryMetadata,
+    K: StorageKey,
+    V: StorageValue,
+    M: StorageMeta,
 {
     type Key = K;
     type Value = V;

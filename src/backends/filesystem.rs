@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 
-use crate::backends::{BackendKey, BackendMeta, BackendValue};
+use crate::backends::{StorageKey, StorageMeta, StorageValue};
 use crate::{
     storage::{EntryMap, SerializationFormat},
     CacheEntry, EntryMetadata, Result, StorageBackend,
@@ -18,13 +18,23 @@ type PhantomTypes<K, V, M> = std::marker::PhantomData<(K, V, M)>;
 
 /// Filesystem storage backend
 #[allow(clippy::type_complexity)]
-pub struct FilesystemBackend<K: BackendKey, V: BackendValue, M: BackendMeta = ()> {
+pub struct FilesystemBackend<K, V, M = ()>
+where
+    K: StorageKey + std::fmt::Display,
+    V: StorageValue,
+    M: StorageMeta,
+{
     base_path: PathBuf,
     format: SerializationFormat,
     _phantom: PhantomTypes<K, V, M>,
 }
 
-impl<K: BackendKey, V: BackendValue, M: BackendMeta> FilesystemBackend<K, V, M> {
+impl<K, V, M> FilesystemBackend<K, V, M>
+where
+    K: StorageKey + std::fmt::Display,
+    V: StorageValue,
+    M: StorageMeta,
+{
     /// Create a new filesystem backend with the given base path
     pub async fn new<P: AsRef<Path>>(base_path: P) -> Result<Self> {
         let base_path = base_path.as_ref().to_path_buf();
@@ -142,12 +152,13 @@ impl<K: BackendKey, V: BackendValue, M: BackendMeta> FilesystemBackend<K, V, M> 
 #[async_trait]
 impl<K, V, M> StorageBackend for FilesystemBackend<K, V, M>
 where
-    K: BackendKey + Serialize + DeserializeOwned + std::fmt::Display + 'static,
-    V: BackendValue + Serialize + DeserializeOwned + 'static,
-    M: BackendMeta + Serialize + DeserializeOwned + EntryMetadata,
+    K: StorageKey + std::fmt::Display,
+    V: StorageValue,
+    M: StorageMeta,
 {
-    type Key = K;
+    // Type associations for this backend
     type Value = V;
+    type Key = K;
     type Metadata = M;
 
     async fn save(&self, entries: &EntryMap<K, V, M>) -> Result<()> {

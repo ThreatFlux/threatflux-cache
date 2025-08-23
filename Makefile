@@ -200,7 +200,7 @@ deny-docker: docker-build ## Run dependency validation in Docker
 
 codedup: ## Check for code duplication
 	@echo "$(CYAN)Checking code duplication...$(NC)"
-	@npx -y jscpd --threshold 5 --format rust --reporters console src examples tests 2>/dev/null || echo "$(YELLOW)Code duplication check requires npx$(NC)"
+	@npx -y jscpd --threshold 0.5 --format rust --reporters console src examples tests 2>/dev/null || echo "$(YELLOW)Code duplication check requires npx$(NC)"
 
 # =============================================================================
 # Testing Commands
