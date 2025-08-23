@@ -171,18 +171,26 @@ mod tests {
         CacheEntry::new(key, value)
     }
 
-    #[tokio::test]
-    async fn test_lru_eviction() {
-        let mut entries = HashMap::new();
+    fn setup_entries<F>(modifier: F) -> HashMap<String, Vec<CacheEntry<String, String, ()>>>
+    where
+        F: FnOnce(&mut CacheEntry<String, String, ()>, &mut CacheEntry<String, String, ()>),
+    {
         let mut entry1 = create_test_entry("key1".to_string(), "value1".to_string());
         let mut entry2 = create_test_entry("key2".to_string(), "value2".to_string());
+        modifier(&mut entry1, &mut entry2);
 
-        // Make entry1 older in terms of access
-        entry1.last_accessed = Utc::now() - Duration::hours(1);
-        entry2.last_accessed = Utc::now();
-
+        let mut entries = HashMap::new();
         entries.insert("key1".to_string(), vec![entry1]);
         entries.insert("key2".to_string(), vec![entry2]);
+        entries
+    }
+
+    #[tokio::test]
+    async fn test_lru_eviction() {
+        let mut entries = setup_entries(|e1, e2| {
+            e1.last_accessed = Utc::now() - Duration::hours(1);
+            e2.last_accessed = Utc::now();
+        });
 
         let eviction = LruEviction;
         let context = small_context();
@@ -196,16 +204,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_lfu_eviction() {
-        let mut entries = HashMap::new();
-        let mut entry1 = create_test_entry("key1".to_string(), "value1".to_string());
-        let mut entry2 = create_test_entry("key2".to_string(), "value2".to_string());
-
-        // Make entry2 more frequently used
-        entry1.access_count = 1;
-        entry2.access_count = 5;
-
-        entries.insert("key1".to_string(), vec![entry1]);
-        entries.insert("key2".to_string(), vec![entry2]);
+        let mut entries = setup_entries(|e1, e2| {
+            e1.access_count = 1;
+            e2.access_count = 5;
+        });
 
         let eviction = LfuEviction;
         let context = small_context();
@@ -219,16 +221,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_fifo_eviction() {
-        let mut entries = HashMap::new();
-        let mut entry1 = create_test_entry("key1".to_string(), "value1".to_string());
-        let mut entry2 = create_test_entry("key2".to_string(), "value2".to_string());
-
-        // Make entry1 older
-        entry1.timestamp = Utc::now() - Duration::hours(1);
-        entry2.timestamp = Utc::now();
-
-        entries.insert("key1".to_string(), vec![entry1]);
-        entries.insert("key2".to_string(), vec![entry2]);
+        let mut entries = setup_entries(|e1, e2| {
+            e1.timestamp = Utc::now() - Duration::hours(1);
+            e2.timestamp = Utc::now();
+        });
 
         let eviction = FifoEviction;
         let context = small_context();
