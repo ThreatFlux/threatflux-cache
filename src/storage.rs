@@ -7,6 +7,9 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// Convenience alias for the internal storage map
+pub type EntryMap<K, V, M> = HashMap<K, Vec<CacheEntry<K, V, M>>>;
+
 /// Trait for cache storage backends
 #[async_trait]
 pub trait StorageBackend: Send + Sync + 'static {
@@ -18,15 +21,10 @@ pub trait StorageBackend: Send + Sync + 'static {
     type Metadata: Serialize + DeserializeOwned + Clone + Send + Sync;
 
     /// Save entries to storage
-    async fn save(
-        &self,
-        entries: &HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>,
-    ) -> Result<()>;
+    async fn save(&self, entries: &EntryMap<Self::Key, Self::Value, Self::Metadata>) -> Result<()>;
 
     /// Load entries from storage
-    async fn load(
-        &self,
-    ) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>>;
+    async fn load(&self) -> Result<EntryMap<Self::Key, Self::Value, Self::Metadata>>;
 
     /// Remove entries for a specific key
     async fn remove(&self, key: &Self::Key) -> Result<()>;
