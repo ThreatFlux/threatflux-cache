@@ -142,33 +142,39 @@ where
     /// Add an entry to the cache
     #[allow(clippy::type_complexity)]
     pub async fn add_entry(&self, entry: Entry<K, V, M>) -> Result<()> {
-        let key = entry.key.clone();
-
         {
             let mut entries = self.entries.write().await;
-            let key_entries = entries.entry(key).or_insert_with(Vec::new);
-            key_entries.push(entry);
-
-            // Limit entries per key
-            if key_entries.len() > self.config.max_entries_per_key {
-                key_entries.remove(0);
-            }
-
-            // Check if we need to evict
-            let total_entries: usize = entries.values().map(|v| v.len()).sum();
-            if total_entries > self.config.max_total_entries {
-                let context = EvictionContext {
-                    max_total_entries: self.config.max_total_entries,
-                    current_total_entries: total_entries,
-                };
-                self.eviction_strategy.evict(&mut entries, &context).await;
-            }
+            self.insert_entry(&mut entries, entry).await;
         }
 
         // Increment operation count and check if we need to sync
         self.increment_and_maybe_sync().await?;
 
         Ok(())
+    }
+
+    async fn insert_entry(
+        &self,
+        entries: &mut HashMap<K, Vec<CacheEntry<K, V, M>>>,
+        entry: Entry<K, V, M>,
+    ) {
+        let key_entries = entries.entry(entry.key.clone()).or_default();
+        key_entries.push(entry);
+
+        // Limit entries per key
+        if key_entries.len() > self.config.max_entries_per_key {
+            key_entries.remove(0);
+        }
+
+        // Check if we need to evict
+        let total_entries: usize = entries.values().map(|v| v.len()).sum();
+        if total_entries > self.config.max_total_entries {
+            let context = EvictionContext {
+                max_total_entries: self.config.max_total_entries,
+                current_total_entries: total_entries,
+            };
+            self.eviction_strategy.evict(entries, &context).await;
+        }
     }
 
     /// Get all entries for a key
@@ -208,23 +214,29 @@ where
             .collect()
     }
 
+    /// Aggregate statistics for a slice of cache entries
+    fn entry_vec_stats(entry_vec: &[CacheEntry<K, V, M>]) -> (usize, u64, usize) {
+        entry_vec
+            .iter()
+            .fold((0, 0, 0), |(count, access, expired), entry| {
+                (
+                    count + 1,
+                    access + entry.access_count,
+                    expired + usize::from(entry.is_expired()),
+                )
+            })
+    }
+
     /// Get cache statistics
     pub async fn get_stats(&self) -> CacheStats {
         let entries = self.entries.read().await;
-
-        let total_entries: usize = entries.values().map(|v| v.len()).sum();
         let total_keys = entries.len();
-        let mut total_access_count = 0u64;
-        let mut expired_count = 0usize;
 
-        for entry_vec in entries.values() {
-            for entry in entry_vec {
-                total_access_count += entry.access_count;
-                if entry.is_expired() {
-                    expired_count += 1;
-                }
-            }
-        }
+        let (total_entries, total_access_count, expired_count) =
+            entries.values().fold((0, 0, 0), |acc, entry_vec| {
+                let (e, a, exp) = Self::entry_vec_stats(entry_vec);
+                (acc.0 + e, acc.1 + a, acc.2 + exp)
+            });
 
         CacheStats {
             total_entries,
@@ -446,6 +458,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_entry_limits_and_eviction() {
+        let config = CacheConfig {
+            max_entries_per_key: 2,
+            max_total_entries: 3,
+            ..CacheConfig::default()
+        };
+        let backend: MemoryBackend<String, String> = MemoryBackend::new();
+        let cache: Cache<String, String> = Cache::new(config, backend).await.unwrap();
+
+        cache
+            .add_entry(CacheEntry::new("k1".to_string(), "v1".to_string()))
+            .await
+            .unwrap();
+        cache
+            .add_entry(CacheEntry::new("k1".to_string(), "v2".to_string()))
+            .await
+            .unwrap();
+        cache
+            .add_entry(CacheEntry::new("k1".to_string(), "v3".to_string()))
+            .await
+            .unwrap();
+
+        let k1_entries = cache.get_entries(&"k1".to_string()).await.unwrap();
+        assert_eq!(k1_entries.len(), 2);
+        assert_eq!(k1_entries[0].value, "v2");
+        assert_eq!(k1_entries[1].value, "v3");
+
+        cache
+            .add_entry(CacheEntry::new("k2".to_string(), "v".to_string()))
+            .await
+            .unwrap();
+        cache
+            .add_entry(CacheEntry::new("k3".to_string(), "v".to_string()))
+            .await
+            .unwrap();
+
+        assert!(cache.len().await.unwrap() <= 3);
+    }
+
+    #[tokio::test]
     async fn test_cache_entries_search_stats() {
         let cache = create_cache().await;
 
@@ -474,8 +526,18 @@ mod tests {
 
         let stats = cache.get_stats().await;
         assert_eq!(stats.total_entries, 3);
-        assert!(stats.expired_count >= 1);
-        assert!(stats.total_access_count >= 2); // accesses from get_entries/get_latest
+        assert_eq!(stats.expired_count, 1);
+        assert_eq!(stats.total_access_count, 3); // accesses from get_entries/get_latest
+    }
+
+    #[tokio::test]
+    async fn test_empty_cache_stats() {
+        let cache = create_cache().await;
+        let stats = cache.get_stats().await;
+        assert_eq!(stats.total_entries, 0);
+        assert_eq!(stats.total_keys, 0);
+        assert_eq!(stats.total_access_count, 0);
+        assert_eq!(stats.expired_count, 0);
     }
 
     #[tokio::test]
