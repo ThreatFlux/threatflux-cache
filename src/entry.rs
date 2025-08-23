@@ -37,16 +37,7 @@ where
 {
     /// Create a new cache entry with default metadata
     pub fn new(key: K, value: V) -> Self {
-        let now = Utc::now();
-        Self {
-            key,
-            value,
-            metadata: M::default(),
-            timestamp: now,
-            expiry: None,
-            access_count: 0,
-            last_accessed: now,
-        }
+        Self::init(key, value, M::default())
     }
 }
 
@@ -56,8 +47,8 @@ where
     V: Clone,
     M: Clone,
 {
-    /// Create a new cache entry with metadata
-    pub fn with_metadata(key: K, value: V, metadata: M) -> Self {
+    /// Internal constructor used by `new` and `with_metadata`
+    fn init(key: K, value: V, metadata: M) -> Self {
         let now = Utc::now();
         Self {
             key,
@@ -68,6 +59,11 @@ where
             access_count: 0,
             last_accessed: now,
         }
+    }
+
+    /// Create a new cache entry with metadata
+    pub fn with_metadata(key: K, value: V, metadata: M) -> Self {
+        Self::init(key, value, metadata)
     }
 
     /// Set expiry time for the entry
@@ -168,11 +164,13 @@ pub struct EntryStatistics {
 mod tests {
     use super::*;
 
+    fn sample_entry() -> CacheEntry<String, String, ()> {
+        CacheEntry::new("key1".to_string(), "value1".to_string())
+    }
+
     #[test]
     fn test_cache_entry_creation() {
-        #[allow(clippy::type_complexity)]
-        let entry: CacheEntry<String, String, ()> =
-            CacheEntry::new("key1".to_string(), "value1".to_string());
+        let entry = sample_entry();
         assert_eq!(entry.key, "key1");
         assert_eq!(entry.value, "value1");
         assert_eq!(entry.access_count, 0);
@@ -181,10 +179,7 @@ mod tests {
 
     #[test]
     fn test_cache_entry_ttl() {
-        #[allow(clippy::type_complexity)]
-        let entry: CacheEntry<String, String, ()> =
-            CacheEntry::new("key1".to_string(), "value1".to_string())
-                .with_ttl(chrono::Duration::seconds(60));
+        let entry = sample_entry().with_ttl(chrono::Duration::seconds(60));
 
         assert!(entry.expiry.is_some());
         assert!(!entry.is_expired());
@@ -206,10 +201,8 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::type_complexity)]
     fn test_entry_access_tracking() {
-        let mut entry: CacheEntry<String, String, ()> =
-            CacheEntry::new("key1".to_string(), "value1".to_string());
+        let mut entry = sample_entry();
         let initial_time = entry.last_accessed;
 
         // Sleep a tiny bit to ensure time difference
@@ -221,5 +214,12 @@ mod tests {
 
         entry.record_access();
         assert_eq!(entry.access_count, 2);
+    }
+
+    #[test]
+    fn test_entry_age() {
+        let entry = sample_entry();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        assert!(entry.age() > chrono::Duration::zero());
     }
 }
