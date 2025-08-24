@@ -23,7 +23,8 @@ type EvictionStrategyBox<K, V, M> = Box<dyn EvictionStrategy<K, V, M>>;
 type Entry<K, V, M> = CacheEntry<K, V, M>;
 
 macro_rules! impl_cache_common {
-    ($trait:ident, $($body:tt)*) => {
+    ($(#[$meta:meta])? $trait:path, $($body:tt)*) => {
+        $(#[$meta])?
         impl<K, V, M, B> $trait for Cache<K, V, M, B>
         where
             K: CacheKey,
@@ -105,8 +106,8 @@ where
 
 impl<K, V, M, B> Cache<K, V, M, B>
 where
-    K: CacheKeySer,
-    V: CacheValueSer,
+    K: CacheKey,
+    V: CacheValue,
     M: EntryMetadata + Default,
     B: StorageBackend<Key = K, Value = V, Metadata = M>,
 {
@@ -304,14 +305,7 @@ impl_cache_common!(
     }
 );
 
-#[async_trait]
-impl<K, V, M, B> AsyncCache<K, V> for Cache<K, V, M, B>
-where
-    K: CacheKeySer,
-    V: CacheValueSer,
-    M: EntryMetadata + Default,
-    B: StorageBackend<Key = K, Value = V, Metadata = M>,
-{
+impl_cache_common!(#[async_trait] AsyncCache<K, V>,
     type Error = CacheError;
 
     async fn get(&self, key: &K) -> std::result::Result<Option<V>, Self::Error> {
@@ -364,7 +358,7 @@ where
         let entries = self.entries.read().await;
         Ok(entries.values().map(|v| v.len()).sum())
     }
-}
+);
 
 impl_cache_common!(
     Drop,
