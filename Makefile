@@ -125,8 +125,8 @@ setup-dev: dev-setup ## (Deprecated) Use `make dev-setup` instead
 
 docker-build: ## Build Docker image for consistent environment
 	@echo "$(CYAN)Building Docker image...$(NC)"
-	@echo 'FROM docker.io/threatflux/rust-cicd-template:base-rust-latest\n\
-RUN apt-get update && apt-get install -y pkg-config musl-dev build-essential curl git\n\
+	@echo 'FROM rust:1.95-bookworm\n\
+RUN apt-get update && apt-get install -y pkg-config build-essential curl git\n\
 RUN rustup component add rustfmt clippy\n\
 RUN cargo install cargo-chef cargo-audit cargo-deny cargo-llvm-cov cargo-hack\n\
 WORKDIR /workspace\n\
