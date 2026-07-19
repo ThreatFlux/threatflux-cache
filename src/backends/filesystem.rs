@@ -35,14 +35,19 @@ where
     V: StorageValue,
     M: StorageMeta,
 {
-    /// Create a new filesystem backend with the given base path
+    /// Create a new filesystem backend with the given base path.
+    ///
+    /// JSON is the default when both serialization features are enabled. Use
+    /// [`Self::with_format`] to select Bincode explicitly.
     pub async fn new<P: AsRef<Path>>(base_path: P) -> Result<Self> {
         let base_path = base_path.as_ref().to_path_buf();
         fs::create_dir_all(&base_path).await?;
 
         Ok(Self {
             base_path,
-            #[cfg(feature = "json-serialization")]
+            #[cfg(all(feature = "json-serialization", feature = "bincode-serialization"))]
+            format: SerializationFormat::Json,
+            #[cfg(all(feature = "json-serialization", not(feature = "bincode-serialization")))]
             format: SerializationFormat::Json,
             #[cfg(all(not(feature = "json-serialization"), feature = "bincode-serialization"))]
             format: SerializationFormat::Bincode,
@@ -278,6 +283,13 @@ mod tests {
             let entries = &loaded["persistent_key"];
             assert_eq!(entries[0].value, "persistent_value");
         }
+    }
+
+    #[cfg(all(feature = "json-serialization", feature = "bincode-serialization"))]
+    #[tokio::test]
+    async fn test_mixed_serialization_features_default_to_json() {
+        let (_temp_dir, backend) = new_backend().await;
+        assert_eq!(backend.format, SerializationFormat::Json);
     }
 
     #[tokio::test]
