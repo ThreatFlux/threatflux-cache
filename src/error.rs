@@ -75,8 +75,8 @@ mod tests {
 
     #[test]
     fn test_cache_error_variants() {
-        let io_err: CacheError = io::Error::new(io::ErrorKind::Other, "oops").into();
-        matches!(io_err, CacheError::Io(_));
+        let io_err: CacheError = io::Error::other("oops").into();
+        assert!(matches!(io_err, CacheError::Io(_)));
 
         let ser_err = CacheError::Serialization("ser".into());
         assert_eq!(format!("{ser_err}"), "Serialization error: ser");

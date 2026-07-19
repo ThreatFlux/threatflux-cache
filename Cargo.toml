@@ -37,7 +37,7 @@ anyhow = "1.0"
 
 [features]
 default = ["filesystem-backend", "json-serialization"]
-filesystem-backend = ["serde_json"]
+filesystem-backend = ["json-serialization"]
 json-serialization = ["serde_json"]
 bincode-serialization = ["bincode"]
 compression = ["flate2"]
