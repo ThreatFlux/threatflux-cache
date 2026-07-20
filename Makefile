@@ -125,10 +125,10 @@ setup-dev: dev-setup ## (Deprecated) Use `make dev-setup` instead
 
 docker-build: ## Build Docker image for consistent environment
 	@echo "$(CYAN)Building Docker image...$(NC)"
-	@echo 'FROM rust:1.83-alpine\n\
-RUN apk add --no-cache pkgconfig musl-dev\n\
+	@echo 'FROM rust:1.95.0-bookworm\n\
+RUN apt-get update && apt-get install -y pkg-config build-essential curl git\n\
 RUN rustup component add rustfmt clippy\n\
-RUN cargo install cargo-audit cargo-deny cargo-llvm-cov cargo-hack\n\
+RUN cargo install --locked cargo-chef@0.1.77 cargo-audit@0.22.2 cargo-deny@0.20.2 cargo-llvm-cov@0.8.7 cargo-hack@0.6.45\n\
 WORKDIR /workspace\n\
 ENV CARGO_TERM_COLOR=always\n\
 ENV RUST_BACKTRACE=1\n\
@@ -270,12 +270,14 @@ test-integration: ## Run integration tests
 
 feature-check: ## Check all feature combinations with cargo-hack
 	@echo "$(CYAN)Checking feature combinations with cargo-hack...$(NC)"
-	@cargo hack check --feature-powerset --depth 2 --no-dev-deps 2>/dev/null || echo "$(YELLOW)Feature check requires cargo-hack (cargo install cargo-hack)$(NC)"
+	@command -v cargo-hack >/dev/null 2>&1 || { echo "$(RED)Feature check requires cargo-hack (cargo install cargo-hack)$(NC)"; exit 1; }
+	@cargo hack check --feature-powerset --depth 2 --no-dev-deps
 
-msrv-check: ## Check Minimum Supported Rust Version (1.81.0)
-	@echo "$(CYAN)Checking MSRV (1.81.0)...$(NC)"
-	@rustup toolchain install 1.81.0 --profile minimal 2>/dev/null || true
-	@cargo +1.81.0 check --all-features && echo "$(GREEN)✅ MSRV check passed!$(NC)" || echo "$(RED)❌ MSRV check failed - code requires features from Rust > 1.81.0$(NC)"
+msrv-check: ## Check Minimum Supported Rust Version (1.95.0)
+	@echo "$(CYAN)Checking MSRV (1.95.0)...$(NC)"
+	@rustup toolchain install 1.95.0 --profile minimal 2>/dev/null || true
+	@cargo +1.95.0 check --all-features
+	@echo "$(GREEN)✅ MSRV check passed!$(NC)"
 
 # =============================================================================
 # Build Commands

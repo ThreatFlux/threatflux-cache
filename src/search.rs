@@ -143,22 +143,19 @@ where
     fn matches(&self, query: &Self::Query) -> bool {
         let key_str = self.key.to_string();
         (query.include_expired || !self.is_expired())
-            && query.pattern.as_ref().map_or(true, |p| key_str.contains(p))
-            && query
-                .min_timestamp
-                .map_or(true, |min| self.timestamp >= min)
-            && query
-                .max_timestamp
-                .map_or(true, |max| self.timestamp <= max)
+            && query.pattern.as_ref().is_none_or(|p| key_str.contains(p))
+            && query.min_timestamp.is_none_or(|min| self.timestamp >= min)
+            && query.max_timestamp.is_none_or(|max| self.timestamp <= max)
             && query
                 .min_access_count
-                .map_or(true, |min| self.access_count >= min)
+                .is_none_or(|min| self.access_count >= min)
             && query
                 .max_access_count
-                .map_or(true, |max| self.access_count <= max)
-            && query.category.as_ref().map_or(true, |category| {
-                self.metadata.category().is_some_and(|c| c == category)
-            })
+                .is_none_or(|max| self.access_count <= max)
+            && query
+                .category
+                .as_ref()
+                .is_none_or(|category| self.metadata.category().is_some_and(|c| c == category))
     }
 }
 

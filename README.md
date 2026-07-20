@@ -2,7 +2,7 @@
 [![Crates.io](https://img.shields.io/crates/v/threatflux-cache.svg)](https://crates.io/crates/threatflux-cache)
 [![Documentation](https://docs.rs/threatflux-cache/badge.svg)](https://docs.rs/threatflux-cache)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.95.0%2B-orange.svg)](https://www.rust-lang.org)
 [![CI](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml)
 [![Release](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml)
 [![Security](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml)
