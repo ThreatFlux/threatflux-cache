@@ -1,7 +1,6 @@
 //! Configuration types for the cache
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::time::Duration;
 
 /// Cache configuration
@@ -15,14 +14,8 @@ pub struct CacheConfig {
     pub eviction_policy: EvictionPolicy,
     /// Persistence configuration
     pub persistence: PersistenceConfig,
-    /// Enable compression for stored values
-    #[cfg(feature = "compression")]
-    pub compression: Option<CompressionConfig>,
     /// Default TTL for entries (if not specified per-entry)
     pub default_ttl: Option<Duration>,
-    /// Enable metrics collection
-    #[cfg(feature = "metrics")]
-    pub enable_metrics: bool,
 }
 
 impl Default for CacheConfig {
@@ -32,11 +25,7 @@ impl Default for CacheConfig {
             max_total_entries: 10_000,
             eviction_policy: EvictionPolicy::Lru,
             persistence: PersistenceConfig::default(),
-            #[cfg(feature = "compression")]
-            compression: None,
             default_ttl: None,
-            #[cfg(feature = "metrics")]
-            enable_metrics: false,
         }
     }
 }
@@ -76,20 +65,6 @@ impl CacheConfig {
         self.default_ttl = Some(ttl);
         self
     }
-
-    /// Enable compression with given configuration
-    #[cfg(feature = "compression")]
-    pub fn with_compression(mut self, compression: CompressionConfig) -> Self {
-        self.compression = Some(compression);
-        self
-    }
-
-    /// Enable metrics collection
-    #[cfg(feature = "metrics")]
-    pub fn with_metrics(mut self, enable: bool) -> Self {
-        self.enable_metrics = enable;
-        self
-    }
 }
 
 /// Eviction policy for cache entries
@@ -112,12 +87,8 @@ pub enum EvictionPolicy {
 pub struct PersistenceConfig {
     /// Enable persistence
     pub enabled: bool,
-    /// Path to store cache data
-    pub path: Option<PathBuf>,
     /// Sync to disk after every N operations
     pub sync_interval: usize,
-    /// Automatically save on drop
-    pub save_on_drop: bool,
     /// Load existing cache on startup
     pub load_on_startup: bool,
 }
@@ -126,20 +97,17 @@ impl Default for PersistenceConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            path: None,
             sync_interval: 100,
-            save_on_drop: true,
             load_on_startup: true,
         }
     }
 }
 
 impl PersistenceConfig {
-    /// Create persistence config with path
-    pub fn with_path<P: Into<PathBuf>>(path: P) -> Self {
+    /// Create an enabled persistence configuration.
+    pub fn enabled() -> Self {
         Self {
             enabled: true,
-            path: Some(path.into()),
             ..Default::default()
         }
     }
@@ -151,41 +119,6 @@ impl PersistenceConfig {
             ..Default::default()
         }
     }
-}
-
-/// Compression configuration
-#[cfg(feature = "compression")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CompressionConfig {
-    /// Compression algorithm to use
-    pub algorithm: CompressionAlgorithm,
-    /// Compression level (1-9, higher = better compression, slower)
-    pub level: u32,
-    /// Minimum size in bytes before compression is applied
-    pub min_size: usize,
-}
-
-#[cfg(feature = "compression")]
-impl Default for CompressionConfig {
-    fn default() -> Self {
-        Self {
-            algorithm: CompressionAlgorithm::Gzip,
-            level: 6,
-            min_size: 1024, // 1KB
-        }
-    }
-}
-
-/// Supported compression algorithms
-#[cfg(feature = "compression")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CompressionAlgorithm {
-    /// Gzip compression
-    Gzip,
-    /// Zlib compression
-    Zlib,
-    /// Raw DEFLATE compression
-    Deflate,
 }
 
 #[cfg(test)]
@@ -217,11 +150,9 @@ mod tests {
 
     #[test]
     fn test_persistence_config() {
-        let persistence = PersistenceConfig::with_path("/tmp/cache");
+        let persistence = PersistenceConfig::enabled();
         assert!(persistence.enabled);
-        assert_eq!(persistence.path, Some(PathBuf::from("/tmp/cache")));
         assert_eq!(persistence.sync_interval, 100);
-        assert!(persistence.save_on_drop);
         assert!(persistence.load_on_startup);
     }
 
@@ -229,23 +160,12 @@ mod tests {
     fn test_persistence_config_disabled() {
         let persistence = PersistenceConfig::disabled();
         assert!(!persistence.enabled);
-        assert_eq!(persistence.path, None);
     }
 
     #[test]
     fn test_with_persistence_builder() {
-        let p = PersistenceConfig::with_path("/tmp/data");
+        let p = PersistenceConfig::enabled();
         let config = CacheConfig::new().with_persistence(p.clone());
         assert!(config.persistence.enabled);
-        assert_eq!(config.persistence.path, p.path);
-    }
-
-    #[cfg(feature = "compression")]
-    #[test]
-    fn test_compression_config() {
-        let compression = CompressionConfig::default();
-        assert_eq!(compression.algorithm, CompressionAlgorithm::Gzip);
-        assert_eq!(compression.level, 6);
-        assert_eq!(compression.min_size, 1024);
     }
 }

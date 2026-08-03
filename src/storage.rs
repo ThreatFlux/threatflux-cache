@@ -3,7 +3,7 @@
 use crate::entry::CacheEntry;
 use crate::error::Result;
 use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -39,9 +39,7 @@ pub trait StorageBackend: Send + Sync + 'static {
     }
 
     /// Get approximate size of storage in bytes
-    async fn size_bytes(&self) -> Result<u64> {
-        Ok(0) // Default implementation returns 0
-    }
+    async fn size_bytes(&self) -> Result<u64>;
 
     /// Compact storage (optional operation for backends that support it)
     async fn compact(&self) -> Result<()> {
@@ -49,108 +47,9 @@ pub trait StorageBackend: Send + Sync + 'static {
     }
 }
 
-/// Serialization format for storage backends
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SerializationFormat {
-    /// JSON format
-    #[cfg(feature = "json-serialization")]
-    Json,
-    /// Bincode format
-    #[cfg(feature = "bincode-serialization")]
-    Bincode,
-}
-
-impl SerializationFormat {
-    /// Get file extension for this format
-    pub fn extension(&self) -> &'static str {
-        match self {
-            #[cfg(feature = "json-serialization")]
-            SerializationFormat::Json => "json",
-            #[cfg(feature = "bincode-serialization")]
-            SerializationFormat::Bincode => "bin",
-            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
-            _ => "data",
-        }
-    }
-
-    /// Serialize data to bytes
-    #[allow(unused_variables)]
-    pub fn serialize<T: Serialize>(&self, value: &T) -> Result<Vec<u8>> {
-        match self {
-            #[cfg(feature = "json-serialization")]
-            SerializationFormat::Json => serde_json::to_vec_pretty(value).map_err(Into::into),
-            #[cfg(feature = "bincode-serialization")]
-            SerializationFormat::Bincode => bincode::serialize(value).map_err(Into::into),
-            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
-            _ => Err(crate::error::CacheError::Serialization(
-                "No serialization features enabled".to_string(),
-            )),
-        }
-    }
-
-    /// Deserialize data from bytes
-    #[allow(unused_variables)]
-    pub fn deserialize<T: DeserializeOwned>(&self, data: &[u8]) -> Result<T> {
-        match self {
-            #[cfg(feature = "json-serialization")]
-            SerializationFormat::Json => serde_json::from_slice(data).map_err(Into::into),
-            #[cfg(feature = "bincode-serialization")]
-            SerializationFormat::Bincode => bincode::deserialize(data).map_err(Into::into),
-            #[cfg(not(any(feature = "json-serialization", feature = "bincode-serialization")))]
-            _ => Err(crate::error::CacheError::Serialization(
-                "No serialization features enabled".to_string(),
-            )),
-        }
-    }
-}
-
-/// Storage statistics
-#[derive(Debug, Clone, Default)]
-pub struct StorageStats {
-    /// Total number of keys
-    pub total_keys: usize,
-    /// Total number of entries
-    pub total_entries: usize,
-    /// Total size in bytes
-    pub total_bytes: u64,
-    /// Average entries per key
-    pub avg_entries_per_key: f64,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(any(feature = "json-serialization", feature = "bincode-serialization"))]
-    #[test]
-    fn test_serialization_format_extension() {
-        #[cfg(feature = "json-serialization")]
-        assert_eq!(SerializationFormat::Json.extension(), "json");
-
-        #[cfg(feature = "bincode-serialization")]
-        assert_eq!(SerializationFormat::Bincode.extension(), "bin");
-    }
-
-    #[cfg(feature = "json-serialization")]
-    #[test]
-    fn test_json_serialization() {
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Serialize, Deserialize, PartialEq, Debug)]
-        struct TestData {
-            value: String,
-        }
-
-        let data = TestData {
-            value: "test".to_string(),
-        };
-        let format = SerializationFormat::Json;
-
-        let serialized = format.serialize(&data).unwrap();
-        let deserialized: TestData = format.deserialize(&serialized).unwrap();
-
-        assert_eq!(data, deserialized);
-    }
-
     #[tokio::test]
     async fn test_default_storage_methods() {
         use crate::test_utils::TestBackend;
@@ -166,7 +65,7 @@ mod tests {
 
         assert!(backend.contains(&"a".to_string()).await.unwrap());
         assert!(!backend.contains(&"b".to_string()).await.unwrap());
-        assert_eq!(backend.size_bytes().await.unwrap(), 0);
+        assert!(backend.size_bytes().await.unwrap() > 0);
         backend.compact().await.unwrap();
     }
 }

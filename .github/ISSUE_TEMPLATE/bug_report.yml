@@ -1,0 +1,67 @@
+name: Bug report
+description: Report reproducible incorrect behavior in threatflux-cache.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which threatflux-cache version or commit are you using?
+      placeholder: 0.2.0 or a commit SHA
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      options:
+        - Memory
+        - Filesystem
+        - Custom
+        - Not backend-specific
+    validations:
+      required: true
+
+  - type: input
+    id: features
+    attributes:
+      label: Enabled features
+      description: Include whether default features are disabled.
+      placeholder: default, or --no-default-features --features filesystem-backend
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest code sample or repository that reproduces the issue.
+      render: rust
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, target triple, and rustc version.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      description: Remove credentials, cache values, and other sensitive data before posting.
+      render: text

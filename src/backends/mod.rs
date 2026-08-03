@@ -1,7 +1,7 @@
 //! Storage backend implementations
 
 use crate::EntryMetadata;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::hash::Hash;
 
 /// Bounds required for backend keys

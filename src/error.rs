@@ -5,6 +5,7 @@ use thiserror::Error;
 
 /// Main error type for cache operations
 #[derive(Error, Debug)]
+#[non_exhaustive]
 pub enum CacheError {
     /// I/O error occurred during cache operations
     #[error("I/O error: {0}")]
@@ -37,10 +38,18 @@ pub enum CacheError {
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
 
-    /// Compression error
-    #[cfg(feature = "compression")]
-    #[error("Compression error: {0}")]
-    Compression(String),
+    /// A persistence snapshot exceeded the configured byte limit
+    #[error("Persistence snapshot is too large ({actual_bytes} bytes; limit is {max_bytes})")]
+    SnapshotTooLarge {
+        /// Actual snapshot size in bytes
+        actual_bytes: u64,
+        /// Configured maximum size in bytes
+        max_bytes: u64,
+    },
+
+    /// The persisted data uses an unsupported layout or format version
+    #[error("Unsupported persistence format: {0}")]
+    UnsupportedPersistenceFormat(String),
 
     /// Custom error for extensions
     #[error("Custom error: {0}")]
@@ -49,25 +58,6 @@ pub enum CacheError {
 
 /// Result type alias for cache operations
 pub type Result<T> = std::result::Result<T, CacheError>;
-
-// Implement conversions for common serialization errors
-#[cfg(feature = "json-serialization")]
-impl From<serde_json::Error> for CacheError {
-    fn from(err: serde_json::Error) -> Self {
-        if err.is_data() || err.is_eof() {
-            CacheError::Deserialization(err.to_string())
-        } else {
-            CacheError::Serialization(err.to_string())
-        }
-    }
-}
-
-#[cfg(feature = "bincode-serialization")]
-impl From<bincode::Error> for CacheError {
-    fn from(err: bincode::Error) -> Self {
-        CacheError::Serialization(err.to_string())
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -97,13 +87,5 @@ mod tests {
 
         let custom = CacheError::Custom("c".into());
         assert_eq!(format!("{custom}"), "Custom error: c");
-    }
-
-    #[cfg(feature = "json-serialization")]
-    #[test]
-    fn test_cache_error_from_json() {
-        // malformed JSON triggers serialization error
-        let result: Result<serde_json::Value> = serde_json::from_str("{]").map_err(Into::into);
-        assert!(matches!(result, Err(CacheError::Serialization(_))));
     }
 }
