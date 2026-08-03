@@ -112,7 +112,9 @@ simple_eviction!(
 simple_eviction!(
     /// Least Frequently Used eviction
     LfuEviction,
-    |v: &[CacheEntry<K, V, M>]| v.iter().map(|e| e.access_count).sum::<u64>()
+    |v: &[CacheEntry<K, V, M>]| v
+        .iter()
+        .fold(0u64, |total, entry| total.saturating_add(entry.access_count))
 );
 
 simple_eviction!(
@@ -138,7 +140,9 @@ impl_eviction_strategy!(TtlEviction, context, entries, {
             }
         }
     }
-    let total_entries: usize = entries.values().map(|v| v.len()).sum();
+    let total_entries = entries
+        .values()
+        .fold(0usize, |total, values| total.saturating_add(values.len()));
     if total_entries > context.max_total_entries {
         FifoEviction.evict(entries, context).await;
     }

@@ -29,12 +29,6 @@ pub struct SearchQuery {
     pub include_expired: bool,
     /// Category filter
     pub category: Option<String>,
-    /// Custom predicates as JSON
-    #[cfg(feature = "json-serialization")]
-    pub custom_predicates: Option<serde_json::Value>,
-    /// Custom predicates as string (when JSON feature is disabled)
-    #[cfg(not(feature = "json-serialization"))]
-    pub custom_predicates: Option<String>,
 }
 
 impl SearchQuery {
@@ -76,57 +70,6 @@ impl SearchQuery {
     /// Set category filter
     pub fn with_category<S: Into<String>>(mut self, category: S) -> Self {
         self.category = Some(category.into());
-        self
-    }
-}
-
-/// Extended search capabilities
-pub trait ExtendedSearch<T> {
-    /// Find entries matching a predicate
-    fn find_where<F>(&self, predicate: F) -> Vec<T>
-    where
-        F: Fn(&T) -> bool;
-
-    /// Count entries matching a predicate
-    fn count_where<F>(&self, predicate: F) -> usize
-    where
-        F: Fn(&T) -> bool;
-
-    /// Check if any entry matches a predicate
-    fn any<F>(&self, predicate: F) -> bool
-    where
-        F: Fn(&T) -> bool;
-
-    /// Check if all entries match a predicate
-    fn all<F>(&self, predicate: F) -> bool
-    where
-        F: Fn(&T) -> bool;
-}
-
-/// Search result with relevance scoring
-#[derive(Debug, Clone)]
-pub struct SearchResult<T> {
-    /// The matched item
-    pub item: T,
-    /// Relevance score (0.0 to 1.0)
-    pub score: f64,
-    /// Match details
-    pub match_details: Vec<String>,
-}
-
-impl<T> SearchResult<T> {
-    /// Create a new search result
-    pub fn new(item: T, score: f64) -> Self {
-        Self {
-            item,
-            score,
-            match_details: Vec::new(),
-        }
-    }
-
-    /// Add match detail
-    pub fn with_detail<S: Into<String>>(mut self, detail: S) -> Self {
-        self.match_details.push(detail.into());
         self
     }
 }
@@ -210,13 +153,6 @@ mod tests {
             .with_category("api");
         assert!(query.min_timestamp.is_some());
         assert_eq!(query.category, Some("api".to_string()));
-    }
-
-    #[test]
-    fn test_search_result_details() {
-        let result = SearchResult::new(1u32, 0.5).with_detail("match");
-        assert_eq!(result.score, 0.5);
-        assert_eq!(result.match_details, vec!["match".to_string()]);
     }
 
     #[test]

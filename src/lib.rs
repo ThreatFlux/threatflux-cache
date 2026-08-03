@@ -7,11 +7,9 @@
 //! - **Async-first**: Built on tokio for high-performance async operations
 //! - **Generic**: Works with any serializable key-value types
 //! - **Pluggable backends**: Filesystem, memory, or custom implementations
-//! - **Flexible serialization**: JSON, bincode, or custom formats
+//! - **JSON persistence**: Versioned snapshots for the filesystem backend
 //! - **Eviction policies**: LRU, LFU, FIFO, TTL-based eviction
-//! - **Compression**: Optional compression for stored values
-//! - **Search capabilities**: Query cache entries with custom predicates
-//! - **Metrics**: Optional Prometheus metrics integration
+//! - **Search filters**: Query by key, timestamp, access count, category, and expiry
 //!
 //! ## Quick Start
 //!
@@ -53,9 +51,6 @@ pub mod error;
 pub mod eviction;
 pub mod search;
 pub mod storage;
-
-#[cfg(feature = "metrics")]
-pub mod metrics;
 
 #[cfg(test)]
 pub(crate) mod test_utils;

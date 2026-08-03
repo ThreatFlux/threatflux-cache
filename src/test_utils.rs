@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[cfg(test)]
-use crate::{CacheEntry, Result, StorageBackend};
+use crate::{CacheEntry, CacheError, Result, StorageBackend};
 
 /// Test backend storing entries in memory and tracking save/load calls.
 #[cfg(test)]
@@ -16,6 +16,8 @@ pub(crate) struct TestBackend {
     pub entries: Arc<RwLock<HashMap<String, Vec<CacheEntry<String, String, ()>>>>>,
     pub save_calls: Arc<RwLock<usize>>,
     pub load_calls: Arc<RwLock<usize>>,
+    pub remove_error_after_mutation: Arc<RwLock<bool>>,
+    pub clear_error_after_mutation: Arc<RwLock<bool>>,
 }
 
 #[cfg(test)]
@@ -43,12 +45,33 @@ impl StorageBackend for TestBackend {
 
     async fn remove(&self, key: &Self::Key) -> Result<()> {
         self.entries.write().await.remove(key);
+        if *self.remove_error_after_mutation.read().await {
+            return Err(CacheError::StorageBackend(
+                "injected remove failure after mutation".to_string(),
+            ));
+        }
         Ok(())
     }
 
     async fn clear(&self) -> Result<()> {
         self.entries.write().await.clear();
+        if *self.clear_error_after_mutation.read().await {
+            return Err(CacheError::StorageBackend(
+                "injected clear failure after mutation".to_string(),
+            ));
+        }
         Ok(())
+    }
+
+    async fn size_bytes(&self) -> Result<u64> {
+        let entries = self.entries.read().await;
+        let count = entries
+            .values()
+            .fold(0usize, |total, values| total.saturating_add(values.len()));
+        Ok(u64::try_from(
+            count.saturating_mul(std::mem::size_of::<CacheEntry<String, String, ()>>()),
+        )
+        .unwrap_or(u64::MAX))
     }
 }
 

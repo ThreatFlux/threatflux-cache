@@ -68,22 +68,24 @@ where
 
     /// Set expiry time for the entry
     pub fn with_ttl(mut self, ttl: chrono::Duration) -> Self {
-        self.expiry = Some(self.timestamp + ttl);
+        self.expiry = Some(self.timestamp.checked_add_signed(ttl).unwrap_or_else(|| {
+            if ttl < chrono::Duration::zero() {
+                DateTime::<Utc>::MIN_UTC
+            } else {
+                DateTime::<Utc>::MAX_UTC
+            }
+        }));
         self
     }
 
     /// Check if the entry has expired
     pub fn is_expired(&self) -> bool {
-        if let Some(expiry) = self.expiry {
-            Utc::now() > expiry
-        } else {
-            false
-        }
+        self.expiry.is_some_and(|expiry| Utc::now() >= expiry)
     }
 
     /// Update access statistics
     pub fn record_access(&mut self) {
-        self.access_count += 1;
+        self.access_count = self.access_count.saturating_add(1);
         self.last_accessed = Utc::now();
     }
 
@@ -143,23 +145,6 @@ impl EntryMetadata for BasicMetadata {
     }
 }
 
-/// Statistics for a group of cache entries
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct EntryStatistics {
-    /// Total number of entries
-    pub total_count: usize,
-    /// Total size in bytes
-    pub total_size_bytes: u64,
-    /// Average execution time
-    pub avg_execution_time_ms: f64,
-    /// Average age of entries
-    pub avg_age_seconds: f64,
-    /// Number of expired entries
-    pub expired_count: usize,
-    /// Total access count
-    pub total_access_count: u64,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,10 +188,8 @@ mod tests {
     #[test]
     fn test_entry_access_tracking() {
         let mut entry = sample_entry();
+        entry.last_accessed = Utc::now() - chrono::Duration::seconds(1);
         let initial_time = entry.last_accessed;
-
-        // Sleep a tiny bit to ensure time difference
-        std::thread::sleep(std::time::Duration::from_millis(10));
 
         entry.record_access();
         assert_eq!(entry.access_count, 1);
@@ -214,12 +197,16 @@ mod tests {
 
         entry.record_access();
         assert_eq!(entry.access_count, 2);
+
+        entry.access_count = u64::MAX;
+        entry.record_access();
+        assert_eq!(entry.access_count, u64::MAX);
     }
 
     #[test]
     fn test_entry_age() {
-        let entry = sample_entry();
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        let mut entry = sample_entry();
+        entry.timestamp = Utc::now() - chrono::Duration::seconds(1);
         assert!(entry.age() > chrono::Duration::zero());
     }
 }

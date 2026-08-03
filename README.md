@@ -1,71 +1,61 @@
 # ThreatFlux Cache
+
 [![Crates.io](https://img.shields.io/crates/v/threatflux-cache.svg)](https://crates.io/crates/threatflux-cache)
-[![Documentation](https://docs.rs/threatflux-cache/badge.svg)](https://docs.rs/threatflux-cache)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.95.0%2B-orange.svg)](https://www.rust-lang.org)
+[![docs.rs](https://docs.rs/threatflux-cache/badge.svg)](https://docs.rs/threatflux-cache)
 [![CI](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/ci.yml)
-[![Release](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/release.yml)
 [![Security](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/security.yml)
-[![Documentation](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/docs.yml/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/docs.yml)
-[![codecov](https://codecov.io/gh/ThreatFlux/threatflux-cache/graph/badge.svg?token=DlAEOagOhp)](https://codecov.io/gh/ThreatFlux/threatflux-cache)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/8f07242350d84597af1af64edbc505fa)](https://app.codacy.com/gh/ThreatFlux/threatflux-cache/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![CodeQL](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/ThreatFlux/threatflux-cache/actions/workflows/github-code-scanning/codeql)
+[![MSRV](https://img.shields.io/badge/MSRV-1.95.0-orange.svg)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+An async, typed cache for Rust applications that need pluggable storage, bounded
+key histories, metadata, and simple entry queries.
 
+ThreatFlux Cache keeps its working set in memory. Applications can use the
+built-in memory backend, enable filesystem snapshots, or implement
+`StorageBackend` for another persistence mechanism.
 
-A flexible, async-first cache library for Rust with pluggable backends, multiple eviction policies, and advanced search capabilities.
+## Highlights
 
-## Features
+- Generic, serializable keys, values, and metadata
+- `put` semantics for one current value per key
+- `add_entry` semantics for bounded per-key history
+- LRU, LFU, FIFO, TTL, and manual eviction strategies
+- Timestamp, access-count, key-pattern, and metadata-category filters
+- Bounded, versioned JSON filesystem snapshots
+- An async API built on Tokio with no unsafe code in the crate
 
-- **Async-first design**: Built on tokio for high-performance async operations
-- **Generic key-value storage**: Works with any serializable types
-- **Multiple backends**:
-  - In-memory storage (default)
-  - Filesystem persistence
-  - Easy to add custom backends
-- **Eviction policies**:
-  - LRU (Least Recently Used)
-  - LFU (Least Frequently Used)
-  - FIFO (First In First Out)
-  - TTL (Time To Live)
-  - Manual only
-- **Advanced features**:
-  - Entry metadata and custom attributes
-  - Search and query capabilities
-  - Compression support
-  - Metrics integration
-  - Automatic persistence
-  - Entry statistics and access tracking
+## Install
 
-## Installation
-
-Add this to your `Cargo.toml`:
+The default features enable the filesystem backend and JSON serialization. The
+default cache type still uses the in-memory backend unless you construct a
+`FilesystemBackend` explicitly.
 
 ```toml
 [dependencies]
-threatflux-cache = "0.1.0"
+threatflux-cache = "0.2.0"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-### Feature Flags
+For a memory-only build:
 
-- `default`: Enables filesystem backend and JSON serialization
-- `filesystem-backend`: Filesystem storage support
-- `json-serialization`: JSON format support
-- `bincode-serialization`: Bincode format support
-- `compression`: Compression support for stored values
-- `openapi`: OpenAPI schema generation
-- `metrics`: Prometheus metrics integration
-- `tracing`: Tracing support
-- `full`: All features enabled
+```toml
+[dependencies]
+threatflux-cache = { version = "0.2.0", default-features = false }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
 
-## Quick Start
+ThreatFlux Cache requires Rust 1.95.0 or newer.
 
-### Basic Usage
+## Quick start
 
 ```rust
-use threatflux_cache::prelude::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use threatflux_cache::{AsyncCache, Cache, CacheConfig};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 struct User {
     id: u64,
     name: String,
@@ -73,154 +63,125 @@ struct User {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a cache with default configuration
     let cache: Cache<String, User> = Cache::with_config(CacheConfig::default()).await?;
-    
-    // Store a value
-    let user = User { id: 1, name: "Alice".to_string() };
-    cache.put("user:1".to_string(), user).await?;
-    
-    // Retrieve a value
-    if let Some(user) = cache.get(&"user:1".to_string()).await? {
-        println!("Found user: {}", user.name);
-    }
-    
+    let key = "user:1".to_owned();
+
+    cache
+        .put(
+            key.clone(),
+            User {
+                id: 1,
+                name: "Alice".to_owned(),
+            },
+        )
+        .await?;
+
+    assert_eq!(
+        cache.get(&key).await?.map(|user| user.name),
+        Some("Alice".to_owned())
+    );
     Ok(())
 }
 ```
 
-### With Filesystem Persistence
+`put` replaces the history for its key. Use `CacheEntry` and `add_entry` when
+you want to retain multiple versions:
 
 ```rust
-use threatflux_cache::prelude::*;
+use threatflux_cache::{Cache, CacheConfig, CacheEntry};
 
-let config = CacheConfig::default()
-    .with_persistence(PersistenceConfig::with_path("/tmp/my-cache"))
-    .with_eviction_policy(EvictionPolicy::Lru);
+# async fn example() -> threatflux_cache::Result<()> {
+let cache: Cache<String, String> = Cache::with_config(
+    CacheConfig::default().with_max_entries_per_key(3),
+)
+.await?;
 
-let backend = FilesystemBackend::new("/tmp/my-cache").await?;
-let cache: Cache<String, String> = Cache::new(config, backend).await?;
+cache
+    .add_entry(CacheEntry::new("report".to_owned(), "version 1".to_owned()))
+    .await?;
+cache
+    .add_entry(CacheEntry::new("report".to_owned(), "version 2".to_owned()))
+    .await?;
+
+assert_eq!(cache.get_entries(&"report".to_owned()).await.unwrap().len(), 2);
+# Ok(())
+# }
 ```
 
-### Custom Metadata
+See [`examples/basic_usage.rs`](examples/basic_usage.rs) and
+[`examples/custom_entry.rs`](examples/custom_entry.rs) for complete programs.
+
+## Filesystem snapshots
+
+Filesystem persistence requires the `filesystem-backend` feature. The backend
+path is authoritative; configure persistence separately so the cache loads and
+saves snapshots.
 
 ```rust
-use threatflux_cache::{CacheEntry, BasicMetadata};
-
-let metadata = BasicMetadata {
-    execution_time_ms: Some(100),
-    size_bytes: Some(1024),
-    category: Some("api-response".to_string()),
-    tags: vec!["user".to_string(), "profile".to_string()],
+use threatflux_cache::{
+    AsyncCache, Cache, CacheConfig, FilesystemBackend, PersistenceConfig,
 };
 
-let entry = CacheEntry::with_metadata(
-    "key".to_string(),
-    "value".to_string(),
-    metadata,
-);
-
-cache.add_entry(entry).await?;
-```
-
-### Search Capabilities
-
-```rust
-use threatflux_cache::SearchQuery;
-
-// Search by pattern and category
-let query = SearchQuery::new()
-    .with_pattern("user")
-    .with_category("api-response")
-    .with_access_count_range(Some(5), None);
-
-let results = cache.search(&query).await;
-for entry in results {
-    println!("Found: {:?}", entry.value);
-}
-```
-
-## Migration from file-scanner
-
-If you're migrating from file-scanner's built-in cache, see the `examples/file_scanner_migration.rs` for a complete migration guide. The library provides an adapter pattern to maintain API compatibility while gaining the benefits of the new cache system.
-
-## Configuration Options
-
-```rust
+# async fn example() -> threatflux_cache::Result<()> {
+let path = std::path::PathBuf::from("./cache-data");
+let backend = FilesystemBackend::<String, String>::new(&path).await?;
 let config = CacheConfig::default()
-    // Capacity settings
-    .with_max_entries_per_key(100)
-    .with_max_total_entries(10_000)
-    
-    // Eviction policy
-    .with_eviction_policy(EvictionPolicy::Lru)
-    
-    // Persistence
-    .with_persistence(PersistenceConfig {
-        enabled: true,
-        path: Some("/var/cache/myapp".into()),
-        sync_interval: 100,
-        save_on_drop: true,
-        load_on_startup: true,
-    })
-    
-    // TTL for all entries
-    .with_default_ttl(Duration::from_secs(3600))
-    
-    // Enable compression
-    .with_compression(CompressionConfig {
-        algorithm: CompressionAlgorithm::Gzip,
-        level: 6,
-        min_size: 1024,
-    });
+    .with_persistence(PersistenceConfig::enabled());
+let cache = Cache::new(config, backend).await?;
+cache.put("greeting".to_owned(), "hello".to_owned()).await?;
+cache.flush().await?;
+# Ok(())
+# }
 ```
 
-## Custom Storage Backend
+`flush` waits for the backend to finish writing the current state. Snapshots are
+not a transactional database or substitute for a system of record. Read
+[`docs/PERSISTENCE.md`](docs/PERSISTENCE.md) before relying on restart recovery
+or sharing a directory between processes.
 
-Implement the `StorageBackend` trait to create custom storage solutions:
+## Feature flags
 
-```rust
-use async_trait::async_trait;
-use threatflux_cache::{StorageBackend, CacheEntry, Result};
+| Feature              | Default | Surface enabled                                                               |
+| -------------------- | :-----: | ----------------------------------------------------------------------------- |
+| `filesystem-backend` |   yes   | `FilesystemBackend`; also enables Tokio filesystem I/O and JSON serialization |
+| `full`               |   no    | Alias for every supported optional feature                                    |
 
-pub struct MyCustomBackend;
+For tested feature combinations and current limitations, see
+[`docs/FEATURES.md`](docs/FEATURES.md).
 
-#[async_trait]
-impl StorageBackend for MyCustomBackend {
-    type Key = String;
-    type Value = String;
-    type Metadata = ();
-    
-    async fn save(&self, entries: &HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>) -> Result<()> {
-        // Implementation
-        Ok(())
-    }
-    
-    async fn load(&self) -> Result<HashMap<Self::Key, Vec<CacheEntry<Self::Key, Self::Value, Self::Metadata>>>> {
-        // Implementation
-        Ok(HashMap::new())
-    }
-    
-    // ... other required methods
-}
-```
+## Behavioral boundaries
 
-## Performance Considerations
+- `get` returns the newest entry and records an access; `get_entries` records an
+  access for every returned version.
+- Search patterns are case-sensitive substrings of the key's `Display` output;
+  values are not full-text searched.
+- `get`, `get_entries`, `contains`, `len`, and search exclude expired entries;
+  search can opt into expired results.
+- LRU, LFU, and FIFO eviction remove one entire key and its history when the
+  global limit is crossed.
+- `default_ttl` applies to entries that do not already have an explicit expiry.
+- Zero entry limits and a zero persistence sync interval are rejected; with
+  eviction disabled, an insertion that would grow a full cache returns
+  `CapacityExceeded`.
 
-- The cache uses `Arc<RwLock<HashMap>>` for thread-safe concurrent access
-- Batch operations are preferred for bulk updates
-- Filesystem backend saves are throttled using a semaphore
-- Consider compression for large values to reduce I/O
+The complete contract is documented in
+[`docs/BEHAVIOR.md`](docs/BEHAVIOR.md). This crate is pre-1.0; minor releases may
+refine APIs and on-disk representation.
+
+## Extending the cache
+
+Implement [`StorageBackend`](https://docs.rs/threatflux-cache/latest/threatflux_cache/storage/trait.StorageBackend.html)
+to provide a different snapshot store. Implement `EntryMetadata` to attach
+domain-specific metadata and expose a category to the built-in search filters.
+
+## Development and security
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution workflow
+- [`DEVELOPMENT.md`](DEVELOPMENT.md) — local setup and commands
+- [`TESTING.md`](TESTING.md) — validation matrix
+- [`SECURITY.md`](SECURITY.md) — private vulnerability reporting
+- [`CHANGELOG.md`](CHANGELOG.md) — release history
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Licensed under the [MIT License](LICENSE).

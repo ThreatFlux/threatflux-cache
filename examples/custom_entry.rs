@@ -1,8 +1,8 @@
-//! Example showing custom entry metadata and search functionality
+//! Custom entry metadata, version history, and search.
 
 use serde::{Deserialize, Serialize};
 use threatflux_cache::prelude::*;
-use threatflux_cache::{entry::BasicMetadata, EvictionPolicy, PersistenceConfig, SearchQuery};
+use threatflux_cache::{EvictionPolicy, SearchQuery, entry::BasicMetadata};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Document {
@@ -34,13 +34,7 @@ fn make_entry(
 }
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-#[cfg(feature = "filesystem-backend")]
-type Backend = FilesystemBackend<String, Document, BasicMetadata>;
-#[cfg(not(feature = "filesystem-backend"))]
-type Backend = MemoryBackend<String, Document, BasicMetadata>;
-
-type DocCache = Cache<String, Document, BasicMetadata, Backend>;
+type DocCache = Cache<String, Document, BasicMetadata>;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -53,15 +47,9 @@ async fn main() -> Result<()> {
 
 async fn build_cache() -> Result<DocCache> {
     let config = CacheConfig::default()
-        .with_persistence(PersistenceConfig::with_path("/tmp/document-cache"))
+        .with_max_entries_per_key(5)
         .with_eviction_policy(EvictionPolicy::Lru);
-
-    #[cfg(feature = "filesystem-backend")]
-    let backend = FilesystemBackend::new("/tmp/document-cache").await?;
-    #[cfg(not(feature = "filesystem-backend"))]
-    let backend = MemoryBackend::new();
-
-    Cache::new(config, backend).await.map_err(Into::into)
+    Cache::with_config(config).await.map_err(Into::into)
 }
 
 async fn populate_cache(cache: &DocCache) -> Result<()> {
@@ -92,6 +80,7 @@ async fn populate_cache(cache: &DocCache) -> Result<()> {
 }
 
 async fn search_and_display(cache: &DocCache) {
+    // Pattern matching is a case-sensitive substring search over the key.
     let query = SearchQuery::new()
         .with_pattern("doc")
         .with_category("tutorial");
@@ -107,7 +96,8 @@ async fn search_and_display(cache: &DocCache) {
 }
 
 async fn show_entries(cache: &DocCache) -> Result<()> {
-    if let Some(entries) = cache.get_entries(&"doc:1".to_string()).await {
+    let key = "doc:1".to_owned();
+    if let Some(entries) = cache.get_entries(&key).await {
         for entry in entries {
             println!(
                 "Entry: {} - Access count: {}, Age: {:?}",

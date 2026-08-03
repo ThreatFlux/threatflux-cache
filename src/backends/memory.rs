@@ -101,10 +101,13 @@ where
         let data = self.data.read().await;
 
         // Estimate size based on number of entries
-        let total_entries: usize = data.values().map(|v| v.len()).sum();
-        let estimated_size = total_entries * std::mem::size_of::<CacheEntry<K, V, M>>();
+        let total_entries = data
+            .values()
+            .fold(0usize, |total, values| total.saturating_add(values.len()));
+        let estimated_size =
+            total_entries.saturating_mul(std::mem::size_of::<CacheEntry<K, V, M>>());
 
-        Ok(estimated_size as u64)
+        Ok(u64::try_from(estimated_size).unwrap_or(u64::MAX))
     }
 }
 
