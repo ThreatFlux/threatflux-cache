@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed every dependency requirement to the latest stable release,
+  including `tokio` 1.53.1, `chrono` 0.4.45, `serde` 1.0.229, and
+  `serde_json` 1.0.151. No API or snapshot-format change.
+
 ## [0.2.0] - 2026-08-03
 
 ### Added
