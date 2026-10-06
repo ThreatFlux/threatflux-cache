@@ -49,8 +49,10 @@ Releases are cut by the `Auto Release` workflow
    and matches the `Cargo.toml` version. It then tests and builds the crate on
    every supported target, packages it, generates a CycloneDX SBOM, publishes
    to crates.io, and attaches the `.crate` file and the SBOM to the GitHub
-   release. A version that is already on crates.io is skipped, so a rerun is
-   safe.
+   release, each with a `.sha256` checksum file and a signed build provenance
+   attestation. The attached `.crate` must be identical to the package
+   crates.io serves, or the release fails. A version that is already on
+   crates.io is skipped, so a rerun is safe.
 4. Verify that the release notes accurately reflect the curated changelog and
    edit the GitHub release when important compatibility or migration context is
    missing. A `## [X.Y.Z]` section in `CHANGELOG.md` replaces the generated
@@ -79,7 +81,19 @@ its secrets. Never place a long-lived token in repository files or logs.
 - Build the published crate in a fresh project using default and no-default
   features.
 - Confirm docs.rs built the public documentation.
-- Verify the GitHub release artifacts and checksums, if any.
+- Verify the GitHub release assets, their checksums, and their provenance:
+
+  ```bash
+  gh release download vX.Y.Z --repo ThreatFlux/threatflux-cache --dir dist
+  (cd dist && sha256sum --check ./*.sha256)
+  gh attestation verify dist/threatflux-cache-X.Y.Z.crate --repo ThreatFlux/threatflux-cache
+  gh attestation verify dist/threatflux-cache-vX.Y.Z.cdx.json --repo ThreatFlux/threatflux-cache
+  ```
+
+  `gh attestation verify` checks one file per call, so verify the crate and
+  the SBOM separately; a matching `.sha256` file alone does not prove where an
+  asset came from.
+
 - Confirm the changelog comparison link points at the new tag.
 
 If publication fails after crates.io accepts a version, do not delete or reuse

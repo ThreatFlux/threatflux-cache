@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-06
+
 ### Changed
 
 - Refreshed every dependency requirement to the latest stable release,
@@ -15,6 +17,9 @@ All notable changes to this project are documented here. The format follows
   crates.io through trusted publishing, with no stored registry token. The
   release workflow now supports dry runs, tests every supported target, and
   attaches the crate package and a CycloneDX SBOM to the GitHub release.
+- Every release asset now has a `.sha256` checksum file and a signed build
+  provenance attestation, and the attached crate is checked to be identical
+  to the package published on crates.io.
 
 ## [0.2.0] - 2026-08-03
 
@@ -72,6 +77,7 @@ See [`docs/MIGRATING_TO_0.2.md`](docs/MIGRATING_TO_0.2.md) for upgrade guidance.
 - Corrected feature combinations and generic type usage in examples and tests.
 - Improved filesystem filename sanitization and test coverage.
 
-[Unreleased]: https://github.com/ThreatFlux/threatflux-cache/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ThreatFlux/threatflux-cache/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ThreatFlux/threatflux-cache/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ThreatFlux/threatflux-cache/compare/v0.1.8...v0.2.0
 [0.1.8]: https://github.com/ThreatFlux/threatflux-cache/releases/tag/v0.1.8

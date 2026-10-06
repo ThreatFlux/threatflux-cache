@@ -1,8 +1,9 @@
 name: Release
 
 # Read-only by default. Only the jobs that create the release tag or the GitHub
-# Release request contents: write, and only the crates.io publish job requests
-# id-token: write.
+# Release request contents: write. id-token: write is limited to the crates.io
+# publish job (trusted publishing) and the GitHub Release job (signing the build
+# provenance attestation).
 permissions:
   contents: read
 
@@ -263,11 +264,22 @@ jobs:
           cargo package --locked --list
           cargo package --locked
 
+      - name: Write crate checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd target/package
+          for crate in ./*.crate; do
+            sha256sum "${crate#./}" > "${crate#./}.sha256"
+          done
+
       - name: Upload crate package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-crate
-          path: target/package/*.crate
+          path: |
+            target/package/*.crate
+            target/package/*.crate.sha256
           if-no-files-found: error
           retention-days: 5
 
@@ -299,14 +311,18 @@ jobs:
         run: |
           set -euo pipefail
           make sbom
-          mv "sbom/${CRATE_NAME}-sbom.json" "sbom/${CRATE_NAME}-v${VERSION}.cdx.json"
-          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "sbom/${CRATE_NAME}-v${VERSION}.cdx.json" >/dev/null
+          sbom="${CRATE_NAME}-v${VERSION}.cdx.json"
+          mv "sbom/${CRATE_NAME}-sbom.json" "sbom/${sbom}"
+          jq -e '.bomFormat == "CycloneDX" and (.components | length > 0)' "sbom/${sbom}" >/dev/null
+          (cd sbom && sha256sum "$sbom" > "${sbom}.sha256")
 
       - name: Upload SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-sbom
-          path: sbom/*.cdx.json
+          path: |
+            sbom/*.cdx.json
+            sbom/*.cdx.json.sha256
           if-no-files-found: error
           retention-days: 5
 
@@ -410,7 +426,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      attestations: write # Stores the build provenance attestation.
       contents: write # Creates or updates the GitHub Release and uploads its assets.
+      id-token: write # Signs the build provenance attestation with GitHub OIDC.
     steps:
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -423,6 +441,48 @@ jobs:
           path: dist
           pattern: release-*
           merge-multiple: true
+
+      - name: Verify asset checksums
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          for asset in "${CRATE_NAME}-${VERSION}.crate" "${CRATE_NAME}-v${VERSION}.cdx.json"; do
+            if [[ ! -f "$asset" || ! -f "${asset}.sha256" ]]; then
+              echo "Missing release asset ${asset} or its checksum" >&2
+              exit 1
+            fi
+          done
+          sha256sum --check --strict ./*.sha256
+
+      # The attached .crate must be byte-for-byte the package crates.io serves,
+      # so its checksum file also verifies a crate downloaded from crates.io.
+      - name: Match the crate published to crates.io
+        if: needs.publish.result == 'success'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          crate="dist/${CRATE_NAME}-${VERSION}.crate"
+          local_sha256="$(sha256sum "$crate" | awk '{ print $1 }')"
+          published_sha256="$(curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            --user-agent "${GITHUB_REPOSITORY}-release/${GITHUB_RUN_ID} (https://github.com/${GITHUB_REPOSITORY})" \
+            "https://crates.io/api/v1/crates/${CRATE_NAME}/${VERSION}" | jq -er '.version.checksum')"
+          if [[ "$published_sha256" != "$local_sha256" ]]; then
+            echo "${crate} (sha256 ${local_sha256}) differs from the crates.io package (sha256 ${published_sha256})" >&2
+            exit 1
+          fi
+          echo "${crate} matches crates.io (sha256 ${published_sha256})"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.crate
+            dist/*.cdx.json
 
       - name: Generate release notes
         id: notes
