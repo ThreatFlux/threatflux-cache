@@ -11,6 +11,10 @@ All notable changes to this project are documented here. The format follows
 - Refreshed every dependency requirement to the latest stable release,
   including `tokio` 1.53.1, `chrono` 0.4.45, `serde` 1.0.229, and
   `serde_json` 1.0.151. No API or snapshot-format change.
+- Releases are cut by the ThreatFlux automation GitHub App and published to
+  crates.io through trusted publishing, with no stored registry token. The
+  release workflow now supports dry runs, tests every supported target, and
+  attaches the crate package and a CycloneDX SBOM to the GitHub release.
 
 ## [0.2.0] - 2026-08-03
 

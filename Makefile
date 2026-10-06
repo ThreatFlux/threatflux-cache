@@ -1,9 +1,10 @@
 .DEFAULT_GOAL := help
 
 MSRV := 1.95.0
+CRATE_NAME := threatflux-cache
 
 .PHONY: help fmt fmt-check check lint test test-doc feature-check msrv-check docs examples
-.PHONY: audit deny semver package ci clean
+.PHONY: audit deny semver package sbom ci clean
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*##"; printf "Usage: make <target>\n\n"} /^[a-zA-Z_-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -56,6 +57,12 @@ semver: ## Compare the public API with the latest release
 
 package: ## Build and verify the crates.io package
 	cargo package --locked
+
+sbom: ## Generate a CycloneDX SBOM in sbom/ (requires cargo-cyclonedx)
+	mkdir -p sbom
+	rm -f sbom/*.json
+	cargo cyclonedx --manifest-path Cargo.toml --all-features --format json --spec-version 1.5 --override-filename $(CRATE_NAME)-sbom
+	mv $(CRATE_NAME)-sbom.json sbom/
 
 ci: fmt-check check lint test test-doc feature-check msrv-check docs examples audit deny ## Run the complete local CI matrix
 
