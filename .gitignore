@@ -46,5 +46,8 @@ target/criterion/
 # Documentation build
 /doc/
 
+# Generated SBOMs (make sbom)
+/sbom/
+
 # Testing artifacts
 .cache/
