@@ -16,10 +16,6 @@ on:
         description: Version to release (e.g. 0.2.1). Defaults to the Cargo.toml version of the source.
         required: false
         type: string
-      source_ref:
-        description: Git ref to build from (defaults to the ref the workflow runs on)
-        required: false
-        type: string
       prerelease:
         description: Mark the GitHub Release as a pre-release
         required: false
@@ -58,38 +54,27 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       source_sha: ${{ steps.source_sha.outputs.source_sha }}
       prerelease: ${{ steps.version.outputs.prerelease }}
+      tag_object: ${{ steps.tag.outputs.tag_object }}
     steps:
-      - name: Determine source ref
-        id: source_ref
-        env:
-          INPUT_SOURCE_REF: ${{ inputs.source_ref }}
-        shell: bash
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_SOURCE_REF" ]]; then
-            SOURCE_REF="$INPUT_SOURCE_REF"
-          else
-            SOURCE_REF="$GITHUB_REF"
-          fi
-          if [[ "$SOURCE_REF" == *$'\n'* || "$SOURCE_REF" == *$'\r'* || "$SOURCE_REF" == -* ]]; then
-            echo "Invalid source ref" >&2
-            exit 1
-          fi
-          echo "source_ref=${SOURCE_REF}" >> "$GITHUB_OUTPUT"
-
+      # Every job builds the commit this run was started for (the tag, or the
+      # ref chosen with `gh workflow run --ref`), never a ref taken from an
+      # input, so a run cannot be pointed at unreviewed code.
       - name: Check out release source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ steps.source_ref.outputs.source_ref }}
 
-      # Resolve the ref once; the tag and every downstream job use this exact
-      # commit, so a moving branch cannot make the published crate differ from
-      # the tag.
       - name: Resolve source commit
         id: source_sha
         shell: bash
-        run: echo "source_sha=$(git rev-parse --verify HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          SOURCE_SHA="$(git rev-parse --verify HEAD)"
+          if [[ "$SOURCE_SHA" != "$GITHUB_SHA" ]]; then
+            echo "Checked out ${SOURCE_SHA}, expected ${GITHUB_SHA}" >&2
+            exit 1
+          fi
+          echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Determine version
         id: version
@@ -149,6 +134,7 @@ jobs:
       # An existing tag is never moved. A tag push must carry an annotated tag;
       # a manual dispatch creates one on the verified commit when it is missing.
       - name: Ensure release tag
+        id: tag
         if: env.DRY_RUN != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -177,11 +163,18 @@ jobs:
             exit 1
           fi
           # The tag on GitHub, not the checkout snapshot, decides the release.
+          # Later jobs recheck this exact tag object before they publish.
+          read -r TAG_TYPE TAG_OBJECT < <(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq '"\(.object.type) \(.object.sha)"')
+          if [[ "$TAG_TYPE" != "tag" ]]; then
+            echo "Release tag ${TAG} on GitHub must be annotated" >&2
+            exit 1
+          fi
           REMOTE_TAG_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${TAG}" --jq .sha)"
           if [[ "$REMOTE_TAG_SHA" != "$SOURCE_SHA" ]]; then
             echo "Tag ${TAG} points to ${REMOTE_TAG_SHA}, not the release commit ${SOURCE_SHA}" >&2
             exit 1
           fi
+          echo "tag_object=${TAG_OBJECT}" >> "$GITHUB_OUTPUT"
 
       - name: Dry run summary
         if: env.DRY_RUN == 'true'
@@ -225,7 +218,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.prepare.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -252,7 +244,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.prepare.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -288,7 +279,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.prepare.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -339,7 +329,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.prepare.outputs.source_sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
@@ -376,6 +365,24 @@ jobs:
               ;;
           esac
 
+      # crates.io versions are irreversible, so make sure the tag was neither
+      # moved nor deleted since prepare verified it.
+      - name: Recheck release tag
+        if: env.DRY_RUN != 'true' && steps.pending.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          EXPECTED_TAG_OBJECT: ${{ needs.prepare.outputs.tag_object }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          REMOTE_TAG_OBJECT="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq .object.sha)"
+          if [[ -z "$EXPECTED_TAG_OBJECT" || "$REMOTE_TAG_OBJECT" != "$EXPECTED_TAG_OBJECT" ]]; then
+            echo "Release tag ${TAG} changed or disappeared after it was verified" >&2
+            exit 1
+          fi
+
       - name: Authenticate with crates.io
         id: crates-io-auth
         if: env.DRY_RUN != 'true' && steps.pending.outputs.publish == 'true'
@@ -407,7 +414,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ needs.prepare.outputs.source_sha }}
 
       - name: Download release assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -436,6 +442,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+          EXPECTED_TAG_OBJECT: ${{ needs.prepare.outputs.tag_object }}
           HAS_CHANGELOG: ${{ steps.notes.outputs.has_changelog }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease == 'true' || (github.event_name == 'workflow_dispatch' && inputs.prerelease) }}
         shell: bash
@@ -443,10 +450,11 @@ jobs:
           set -euo pipefail
           TAG="v${VERSION}"
           TITLE="ThreatFlux Cache ${TAG}"
-          # The tag must still point at the commit that was tested and published.
+          # The tag must still be the one that was verified, tested and published.
+          REMOTE_TAG_OBJECT="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq .object.sha)"
           REMOTE_TAG_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${TAG}" --jq .sha)"
-          if [[ "$REMOTE_TAG_SHA" != "$SOURCE_SHA" ]]; then
-            echo "Tag ${TAG} points to ${REMOTE_TAG_SHA}, not the release commit ${SOURCE_SHA}" >&2
+          if [[ -z "$EXPECTED_TAG_OBJECT" || "$REMOTE_TAG_OBJECT" != "$EXPECTED_TAG_OBJECT" || "$REMOTE_TAG_SHA" != "$SOURCE_SHA" ]]; then
+            echo "Release tag ${TAG} changed or disappeared after it was verified" >&2
             exit 1
           fi
           # Auto Release already publishes the Release with notes generated
