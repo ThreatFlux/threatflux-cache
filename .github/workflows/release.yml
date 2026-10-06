@@ -70,8 +70,10 @@ jobs:
         shell: bash
         run: |
           SOURCE_SHA="$(git rev-parse --verify HEAD)"
-          if [[ "$SOURCE_SHA" != "$GITHUB_SHA" ]]; then
-            echo "Checked out ${SOURCE_SHA}, expected ${GITHUB_SHA}" >&2
+          # Peel GITHUB_SHA in case it names an annotated tag object.
+          EXPECTED_SHA="$(git rev-parse --verify "${GITHUB_SHA}^{commit}")"
+          if [[ "$SOURCE_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "Checked out ${SOURCE_SHA}, expected ${EXPECTED_SHA}" >&2
             exit 1
           fi
           echo "source_sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
