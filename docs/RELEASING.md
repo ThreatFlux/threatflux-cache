@@ -87,7 +87,12 @@ its secrets. Never place a long-lived token in repository files or logs.
   gh release download vX.Y.Z --repo ThreatFlux/threatflux-cache --dir dist
   (cd dist && sha256sum --check ./*.sha256)
   gh attestation verify dist/threatflux-cache-X.Y.Z.crate --repo ThreatFlux/threatflux-cache
+  gh attestation verify dist/threatflux-cache-vX.Y.Z.cdx.json --repo ThreatFlux/threatflux-cache
   ```
+
+  `gh attestation verify` checks one file per call, so verify the crate and
+  the SBOM separately; a matching `.sha256` file alone does not prove where an
+  asset came from.
 
 - Confirm the changelog comparison link points at the new tag.
 
