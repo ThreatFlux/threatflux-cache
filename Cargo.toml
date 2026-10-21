@@ -26,15 +26,15 @@ include = [
 ]
 
 [dependencies]
-tokio = { version = "1.53.1", default-features = false, features = ["sync"] }
+tokio = { version = "1.54.0", default-features = false, features = ["sync"] }
 async-trait = "0.1.92"
 serde = { version = "1.0.229", features = ["derive"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
-thiserror = "2.0.20"
-serde_json = { version = "1.0.151", optional = true }
+thiserror = "2.0.21"
+serde_json = { version = "1.0.154", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.53.1", default-features = false, features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.54.0", default-features = false, features = ["macros", "rt-multi-thread"] }
 tempfile = "3.27.0"
 
 [features]
