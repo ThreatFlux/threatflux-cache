@@ -112,9 +112,8 @@ simple_eviction!(
 simple_eviction!(
     /// Least Frequently Used eviction
     LfuEviction,
-    |v: &[CacheEntry<K, V, M>]| v
-        .iter()
-        .fold(0u64, |total, entry| total.saturating_add(entry.access_count))
+    |v: &[CacheEntry<K, V, M>]| v.iter().fold(0u64, |total, entry| total
+        .saturating_add(entry.access_count))
 );
 
 simple_eviction!(
