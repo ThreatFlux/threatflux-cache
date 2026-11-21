@@ -35,9 +35,7 @@ highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
 deny = []
-skip = [
-    { name = "syn", version = "2.0.119", reason = "chrono's Windows time-zone support still uses syn 2 while this crate's proc macros use syn 3" },
-]
+skip = []
 skip-tree = []
 
 [sources]

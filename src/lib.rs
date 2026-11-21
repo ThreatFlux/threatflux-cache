@@ -57,6 +57,8 @@ pub(crate) mod test_utils;
 
 // Re-export main types
 pub use cache::{AsyncCache, Cache};
+/// Date and time types used by cache entries and search queries.
+pub use chrono;
 pub use config::{CacheConfig, EvictionPolicy, PersistenceConfig};
 pub use entry::{CacheEntry, EntryMetadata};
 pub use error::{CacheError, Result};

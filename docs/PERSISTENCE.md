@@ -88,6 +88,11 @@ system of record. Design a cache-miss path that can safely repopulate snapshots.
 
 ## Compatibility
 
+Version 1 snapshots written with the original Chrono dependency remain readable.
+Timestamp fields keep their existing UTC string representation, including
+fractional seconds. Snapshot files need no conversion when upgrading to the
+release that uses `sad-chrono`.
+
 The snapshot has an explicit format version, but its typed JSON representation
 can also become incompatible when application key, value, or metadata types
 change. Keep one directory per cache and format version. Do not place unrelated

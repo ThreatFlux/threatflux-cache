@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced the unmaintained `chrono` dependency with `sad-chrono` in the
+  cache's public timestamp and duration types. Import `DateTime`, `Utc`, and
+  `Duration` from `threatflux_cache::chrono` in caller code. The API methods
+  and version 1 snapshot format are unchanged.
+
 ## [0.2.1] - 2026-10-06
 
 ### Changed

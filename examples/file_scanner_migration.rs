@@ -3,10 +3,10 @@
 //! This example requires the `filesystem-backend` feature and treats cached
 //! analysis as reconstructible data rather than a system of record.
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use threatflux_cache::chrono::{DateTime, Utc};
 use threatflux_cache::prelude::*;
 use threatflux_cache::{CacheError, PersistenceConfig};
 
