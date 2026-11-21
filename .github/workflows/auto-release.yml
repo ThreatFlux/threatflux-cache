@@ -9,9 +9,8 @@ concurrency:
 on:
   # workflow_run is required to release only after CI and Security pass on
   # main. The job below only accepts successful push runs from this repository
-  # (never a fork or pull request), and the reusable workflow checks out and
-  # releases the commit those runs tested, executing no code from the
-  # triggering run.
+  # (never a fork or pull request). The version check and release both use
+  # the exact commit those runs tested.
   workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [CI, Security]
     types: [completed]
@@ -38,12 +37,26 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  check-version:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out default-branch history and release tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the version covers the release candidate
+        run: python3 .github/scripts/check_release_version.py
+
+  release:
+    needs: check-version
     permissions:
       actions: write
       contents: write

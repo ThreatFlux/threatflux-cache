@@ -47,6 +47,9 @@ Releases are cut by the `Auto Release` workflow
    commit, `Auto Release` pushes the annotated `vX.Y.Z` tag and creates the
    GitHub release. The ThreatFlux automation GitHub App pushes the tag, which
    starts `Release` directly.
+   If a later commit requires a larger version bump before the tag is cut,
+   the release guard rejects the stale version. Merge a corrective version
+   bump to `Cargo.toml` and `Cargo.lock` through a new reviewed PR.
 3. `Release` checks that the tag is annotated, points at a commit on `main`,
    and matches the `Cargo.toml` version. It then tests and builds the crate on
    every supported target, packages it, generates a CycloneDX SBOM, publishes
