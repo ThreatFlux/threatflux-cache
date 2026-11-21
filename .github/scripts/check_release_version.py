@@ -1,10 +1,9 @@
 """Reject an untagged manifest version too small for the commits it will ship."""
 
-from pathlib import Path
 import re
 import subprocess
 import tomllib
-
+from pathlib import Path
 
 STABLE_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 SUBJECT = re.compile(r"^([A-Za-z][A-Za-z0-9-]*)(?:\([^)]+\))?(!)?:\s?.+$")

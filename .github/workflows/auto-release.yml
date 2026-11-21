@@ -45,18 +45,30 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.version.outputs.ready }}
     steps:
       - name: Check out default-branch history and release tags
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: refs/heads/main
           fetch-depth: 0
           persist-credentials: false
       - name: Verify the version covers the release candidate
-        run: python3 .github/scripts/check_release_version.py
+        id: version
+        env:
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "$CANDIDATE_SHA" ]]; then
+            echo "Skipping release candidate because main has moved."
+            exit 0
+          fi
+          python3 .github/scripts/check_release_version.py
+          echo "ready=true" >> "$GITHUB_OUTPUT"
 
   release:
     needs: check-version
+    if: needs.check-version.outputs.ready == 'true'
     permissions:
       actions: write
       contents: write
