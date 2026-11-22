@@ -1,6 +1,6 @@
 //! Search and query functionality for cache entries
 
-use chrono::{DateTime, Utc};
+use crate::Timestamp;
 use serde::{Deserialize, Serialize};
 
 /// Trait for searchable cache entries
@@ -18,9 +18,9 @@ pub struct SearchQuery {
     /// Pattern to match in string representation
     pub pattern: Option<String>,
     /// Minimum timestamp
-    pub min_timestamp: Option<DateTime<Utc>>,
+    pub min_timestamp: Option<Timestamp>,
     /// Maximum timestamp
-    pub max_timestamp: Option<DateTime<Utc>>,
+    pub max_timestamp: Option<Timestamp>,
     /// Minimum access count
     pub min_access_count: Option<u64>,
     /// Maximum access count
@@ -44,11 +44,7 @@ impl SearchQuery {
     }
 
     /// Set timestamp range
-    pub fn with_timestamp_range(
-        mut self,
-        min: Option<DateTime<Utc>>,
-        max: Option<DateTime<Utc>>,
-    ) -> Self {
+    pub fn with_timestamp_range(mut self, min: Option<Timestamp>, max: Option<Timestamp>) -> Self {
         self.min_timestamp = min;
         self.max_timestamp = max;
         self
@@ -144,11 +140,11 @@ mod tests {
 
     #[test]
     fn test_search_query_timestamp_category() {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let query = SearchQuery::new()
             .with_timestamp_range(
-                Some(now - chrono::Duration::seconds(1)),
-                Some(now + chrono::Duration::seconds(1)),
+                Some(now.saturating_add(crate::SignedDuration::seconds(-1))),
+                Some(now.saturating_add(crate::SignedDuration::seconds(1))),
             )
             .with_category("api");
         assert!(query.min_timestamp.is_some());
@@ -164,8 +160,12 @@ mod tests {
         };
         let mut entry = CacheEntry::with_metadata("k".to_string(), "v".to_string(), metadata);
 
-        let past = entry.timestamp - chrono::Duration::seconds(10);
-        let future = entry.timestamp + chrono::Duration::seconds(10);
+        let past = entry
+            .timestamp
+            .saturating_add(crate::SignedDuration::seconds(-10));
+        let future = entry
+            .timestamp
+            .saturating_add(crate::SignedDuration::seconds(10));
 
         // timestamp range not matching
         let q = SearchQuery::new().with_timestamp_range(Some(future), None);
@@ -184,7 +184,11 @@ mod tests {
         assert!(!entry.matches(&q4));
 
         // expired handling
-        entry.expiry = Some(entry.timestamp - chrono::Duration::seconds(1));
+        entry.expiry = Some(
+            entry
+                .timestamp
+                .saturating_add(crate::SignedDuration::seconds(-1)),
+        );
         let q5 = SearchQuery::new();
         assert!(!entry.matches(&q5));
         let q6 = SearchQuery::new().include_expired(true);

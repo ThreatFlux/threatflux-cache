@@ -66,6 +66,9 @@ jobs:
       - name: Lint GitHub Actions workflows
         run: actionlint
 
+      - name: Test release version guard
+        run: python3 -m unittest discover -s .github/scripts -p 'test_release_version.py'
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 

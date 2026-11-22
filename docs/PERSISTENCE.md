@@ -88,6 +88,12 @@ system of record. Design a cache-miss path that can safely repopulate snapshots.
 
 ## Compatibility
 
+Version 1 snapshots written with the original Chrono dependency remain readable.
+Timestamp fields retain their UTC string representation, including nanosecond
+precision, expanded years, and leap seconds. Version 1 files need no conversion
+when upgrading to ThreatFlux Cache 1.0. See the
+[migration guide](MIGRATING_TO_1.0.md) for caller changes.
+
 The snapshot has an explicit format version, but its typed JSON representation
 can also become incompatible when application key, value, or metadata types
 change. Keep one directory per cache and format version. Do not place unrelated

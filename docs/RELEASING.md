@@ -10,7 +10,7 @@ from a clean, protected `main` branch through the repository's release workflow.
 2. Update README installation snippets and any migration guide. Move the
    release notes from `Unreleased` into a dated, versioned section in
    `CHANGELOG.md` and update its comparison links. Do not bump the `Cargo.toml`
-   version by hand: `Auto Release` bumps it from the latest release.
+   version by hand. `Auto Release` opens a pull request with the version bump.
 3. Confirm the package license, repository URL, description, categories, and
    include/exclude set.
 4. Run the full matrix in [`../TESTING.md`](../TESTING.md).
@@ -41,10 +41,15 @@ Releases are cut by the `Auto Release` workflow
    `fix:` commits produce a patch release, `feat:` commits a minor release, and
    breaking changes a major release; `chore:`, `ci:`, `docs:`, `build:`, and
    `test:` commits do not release.
-2. `Auto Release` bumps `Cargo.toml` and `Cargo.lock`, commits
-   `chore: release vX.Y.Z` to `main`, pushes the annotated `vX.Y.Z` tag, and
-   creates the GitHub release. It authenticates as the ThreatFlux automation
-   GitHub App, so the tag push starts `Release` directly.
+2. `Auto Release` bumps `Cargo.toml` and `Cargo.lock` in a release pull request
+   from `automation/release`. Review and merge that pull request through the
+   normal default-branch rules. After `CI` and `Security` pass on its merge
+   commit, `Auto Release` pushes the annotated `vX.Y.Z` tag and creates the
+   GitHub release. The ThreatFlux automation GitHub App pushes the tag, which
+   starts `Release` directly.
+   If a later commit requires a larger version bump before the tag is cut,
+   the release guard rejects the stale version. Merge a corrective version
+   bump to `Cargo.toml` and `Cargo.lock` through a new reviewed PR.
 3. `Release` checks that the tag is annotated, points at a commit on `main`,
    and matches the `Cargo.toml` version. It then tests and builds the crate on
    every supported target, packages it, generates a CycloneDX SBOM, publishes

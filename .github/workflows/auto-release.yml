@@ -9,9 +9,8 @@ concurrency:
 on:
   # workflow_run is required to release only after CI and Security pass on
   # main. The job below only accepts successful push runs from this repository
-  # (never a fork or pull request), and the reusable workflow checks out and
-  # releases the commit those runs tested, executing no code from the
-  # triggering run.
+  # (never a fork or pull request). The version check and release both use
+  # the exact commit those runs tested.
   workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [CI, Security]
     types: [completed]
@@ -38,12 +37,38 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  check-version:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.version.outputs.ready }}
+    steps:
+      - name: Check out default-branch history and release tags
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the version covers the release candidate
+        id: version
+        env:
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          if [[ "$(git rev-parse HEAD)" != "$CANDIDATE_SHA" ]]; then
+            echo "Skipping release candidate because main has moved."
+            exit 0
+          fi
+          python3 .github/scripts/check_release_version.py
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: check-version
+    if: needs.check-version.outputs.ready == 'true'
     permissions:
       actions: write
       contents: write
@@ -51,7 +76,8 @@ jobs:
     uses: ThreatFlux/github_actions/.github/workflows/reusable-auto-release.yml@c0af79c1d1cbce16cb627d1301942ac668c98beb  # v0.7.11
     with:
       bump: ${{ github.event.inputs.version_bump || 'auto' }}
-      # Only a manual dispatch can request a dry run; workflow_run always releases.
+      create-pr: true
+      # Only a manual dispatch can request a dry run.
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
       required-workflows: CI,Security
       # The ThreatFlux automation App cuts the release, so its tag push starts

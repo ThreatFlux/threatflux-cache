@@ -1,9 +1,9 @@
 //! Eviction strategies for cache entries
 
+use crate::Timestamp;
 use crate::config::EvictionPolicy;
 use crate::{CacheEntry, EntryMetadata};
 use async_trait::async_trait;
-use chrono::Utc;
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -105,7 +105,7 @@ simple_eviction!(
         v.iter()
             .min_by_key(|e| e.last_accessed)
             .map(|e| e.last_accessed)
-            .unwrap_or_else(Utc::now)
+            .unwrap_or_else(Timestamp::now)
     }
 );
 
@@ -123,7 +123,7 @@ simple_eviction!(
         v.iter()
             .min_by_key(|e| e.timestamp)
             .map(|e| e.timestamp)
-            .unwrap_or_else(Utc::now)
+            .unwrap_or_else(Timestamp::now)
     }
 );
 
@@ -157,7 +157,7 @@ impl_eviction_strategy!(NoEviction, _context, _entries, {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
+    use crate::SignedDuration;
 
     fn small_context() -> EvictionContext {
         EvictionContext {
@@ -191,8 +191,8 @@ mod tests {
     #[tokio::test]
     async fn test_lru_eviction() {
         let mut entries = setup_entries(|e1, e2| {
-            e1.last_accessed = Utc::now() - Duration::hours(1);
-            e2.last_accessed = Utc::now();
+            e1.last_accessed = Timestamp::now().saturating_add(SignedDuration::hours(-1));
+            e2.last_accessed = Timestamp::now();
         });
 
         let eviction = LruEviction;
@@ -225,8 +225,8 @@ mod tests {
     #[tokio::test]
     async fn test_fifo_eviction() {
         let mut entries = setup_entries(|e1, e2| {
-            e1.timestamp = Utc::now() - Duration::hours(1);
-            e2.timestamp = Utc::now();
+            e1.timestamp = Timestamp::now().saturating_add(SignedDuration::hours(-1));
+            e2.timestamp = Timestamp::now();
         });
 
         let eviction = FifoEviction;
@@ -243,9 +243,9 @@ mod tests {
     async fn test_ttl_eviction() {
         let mut entries = HashMap::new();
         let entry1 = create_test_entry("key1".to_string(), "value1".to_string())
-            .with_ttl(Duration::hours(-1)); // Already expired
+            .with_ttl(SignedDuration::hours(-1)); // Already expired
         let entry2 = create_test_entry("key2".to_string(), "value2".to_string())
-            .with_ttl(Duration::hours(1)); // Not expired
+            .with_ttl(SignedDuration::hours(1)); // Not expired
 
         entries.insert("key1".to_string(), vec![entry1]);
         entries.insert("key2".to_string(), vec![entry2]);
