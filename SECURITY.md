@@ -5,10 +5,10 @@
 Security fixes are provided for the latest published minor release. Users should
 upgrade to the newest patch before reporting a problem.
 
-| Version              | Supported |
-| -------------------- | :-------: |
-| Latest `0.x` release |    Yes    |
-| Older releases       |    No     |
+| Version                | Supported |
+| ---------------------- | :-------: |
+| `1.0.x` (latest minor) |    Yes    |
+| `0.x`                  |    No     |
 
 ## Reporting a vulnerability
 
