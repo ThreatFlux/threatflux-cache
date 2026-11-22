@@ -33,7 +33,7 @@ default cache type still uses the in-memory backend unless you construct a
 
 ```toml
 [dependencies]
-threatflux-cache = "0.2.0"
+threatflux-cache = "1"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
@@ -42,12 +42,13 @@ For a memory-only build:
 
 ```toml
 [dependencies]
-threatflux-cache = { version = "0.2.0", default-features = false }
+threatflux-cache = { version = "1", default-features = false }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-ThreatFlux Cache requires Rust 1.95.0 or newer.
+ThreatFlux Cache requires Rust 1.95.0 or newer. When upgrading from 0.2.x,
+see the [1.0 migration guide](docs/MIGRATING_TO_1.0.md) for timestamp and TTL changes.
 
 ## Quick start
 
@@ -165,8 +166,7 @@ For tested feature combinations and current limitations, see
   `CapacityExceeded`.
 
 The complete contract is documented in
-[`docs/BEHAVIOR.md`](docs/BEHAVIOR.md). This crate is pre-1.0; minor releases may
-refine APIs and on-disk representation.
+[`docs/BEHAVIOR.md`](docs/BEHAVIOR.md).
 
 ## Extending the cache
 
