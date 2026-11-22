@@ -69,29 +69,8 @@ async fn filesystem_backend_preserves_chrono_snapshot_timestamps() {
 
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path().join("cache.json");
-    let snapshot = serde_json::json!({
-        "version": 1,
-        "entries": [["key", [{
-            "key": "key",
-            "value": "value",
-            "metadata": null,
-            "timestamp": "2024-02-29T12:34:56.123456789Z",
-            "expiry": "2024-02-29T12:35:56.123456789Z",
-            "access_count": 1,
-            "last_accessed": "2024-02-29T12:35:00Z"
-        }, {
-            "key": "key",
-            "value": "legacy",
-            "metadata": null,
-            "timestamp": "2016-12-31T23:59:60.123Z",
-            "expiry": null,
-            "access_count": 1,
-            "last_accessed": "+10000-01-01T00:00:00.123456Z"
-        }]]]
-    });
-    tokio::fs::write(&path, serde_json::to_vec(&snapshot).unwrap())
-        .await
-        .unwrap();
+    let snapshot = include_str!("fixtures/chrono-v1-snapshot.json");
+    tokio::fs::write(&path, snapshot).await.unwrap();
 
     let backend = FilesystemBackend::<String, String>::new(temp_dir.path())
         .await
@@ -118,5 +97,8 @@ async fn filesystem_backend_preserves_chrono_snapshot_timestamps() {
     backend.save(&entries).await.unwrap();
     let saved: serde_json::Value =
         serde_json::from_slice(&tokio::fs::read(&path).await.unwrap()).unwrap();
-    assert_eq!(saved, snapshot);
+    assert_eq!(
+        saved,
+        serde_json::from_str::<serde_json::Value>(snapshot).unwrap()
+    );
 }

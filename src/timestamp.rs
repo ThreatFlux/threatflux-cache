@@ -108,50 +108,6 @@ impl From<UtcDateTime> for Timestamp {
 #[error("invalid UTC or offset timestamp")]
 pub struct ParseTimestampError;
 
-impl FromStr for Timestamp {
-    type Err = ParseTimestampError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let (date, rest) = value
-            .trim()
-            .split_once(['T', 't', ' '])
-            .ok_or(ParseTimestampError)?;
-        let date = Date::parse(date, DATE).map_err(|_| ParseTimestampError)?;
-        let mut parsed_time = Parsed::new();
-        let offset = parsed_time
-            .parse_items(rest.trim_start().as_bytes(), TIME)
-            .map_err(|_| ParseTimestampError)?;
-        let offset = parse_offset(offset)?;
-        let leap_second = parsed_time.second() == Some(60);
-        if leap_second {
-            parsed_time.set_second(59).ok_or(ParseTimestampError)?;
-        }
-        let time = Time::try_from(parsed_time).map_err(|_| ParseTimestampError)?;
-        let utc = UtcDateTime::new(date, time)
-            .checked_sub(SignedDuration::seconds(i64::from(offset.whole_seconds())))
-            .ok_or(ParseTimestampError)?;
-        let mut timestamp = Self::from(utc);
-        if leap_second {
-            timestamp.nanoseconds += NANOS_PER_SECOND;
-        }
-        Ok(timestamp)
-    }
-}
-
-fn parse_offset(value: &[u8]) -> Result<UtcOffset, ParseTimestampError> {
-    let value = std::str::from_utf8(value)
-        .map_err(|_| ParseTimestampError)?
-        .trim_start();
-    if value.eq_ignore_ascii_case("z") || value.eq_ignore_ascii_case("utc") {
-        return Ok(UtcOffset::UTC);
-    }
-    let offset = UtcOffset::parse(value, OFFSET).map_err(|_| ParseTimestampError)?;
-    if offset.whole_hours().unsigned_abs() >= 24 {
-        return Err(ParseTimestampError);
-    }
-    Ok(offset)
-}
-
 impl fmt::Display for Timestamp {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let utc = UtcDateTime::from_unix_timestamp(self.seconds).map_err(|_| fmt::Error)?;
@@ -207,4 +163,48 @@ impl<'de> Deserialize<'de> for Timestamp {
 
         deserializer.deserialize_str(TimestampVisitor)
     }
+}
+
+impl FromStr for Timestamp {
+    type Err = ParseTimestampError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (date, rest) = value
+            .trim()
+            .split_once(['T', 't', ' '])
+            .ok_or(ParseTimestampError)?;
+        let date = Date::parse(date, DATE).map_err(|_| ParseTimestampError)?;
+        let mut parsed_time = Parsed::new();
+        let offset = parsed_time
+            .parse_items(rest.trim_start().as_bytes(), TIME)
+            .map_err(|_| ParseTimestampError)?;
+        let offset = parse_offset(offset)?;
+        let leap_second = parsed_time.second() == Some(60);
+        if leap_second {
+            parsed_time.set_second(59).ok_or(ParseTimestampError)?;
+        }
+        let time = Time::try_from(parsed_time).map_err(|_| ParseTimestampError)?;
+        let utc = UtcDateTime::new(date, time)
+            .checked_sub(SignedDuration::seconds(i64::from(offset.whole_seconds())))
+            .ok_or(ParseTimestampError)?;
+        let mut timestamp = Self::from(utc);
+        if leap_second {
+            timestamp.nanoseconds += NANOS_PER_SECOND;
+        }
+        Ok(timestamp)
+    }
+}
+
+fn parse_offset(value: &[u8]) -> Result<UtcOffset, ParseTimestampError> {
+    let value = std::str::from_utf8(value)
+        .map_err(|_| ParseTimestampError)?
+        .trim_start();
+    if value.eq_ignore_ascii_case("z") || value.eq_ignore_ascii_case("utc") {
+        return Ok(UtcOffset::UTC);
+    }
+    let offset = UtcOffset::parse(value, OFFSET).map_err(|_| ParseTimestampError)?;
+    if offset.whole_hours().unsigned_abs() >= 24 {
+        return Err(ParseTimestampError);
+    }
+    Ok(offset)
 }
