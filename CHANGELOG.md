@@ -8,10 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- Replaced the unmaintained `chrono` dependency with `sad-chrono` in the
-  cache's public timestamp and duration types. Import `DateTime`, `Utc`, and
-  `Duration` from `threatflux_cache::chrono` in caller code. The API methods
-  and version 1 snapshot format are unchanged.
+- Removed the unmaintained `chrono` dependency. Cache entries and search
+  queries use `threatflux_cache::Timestamp`, and entry TTLs and ages use
+  `threatflux_cache::SignedDuration`. See the
+  [migration guide](docs/MIGRATING_TO_1.0.md).
 
 ## [0.2.1] - 2026-10-06
 

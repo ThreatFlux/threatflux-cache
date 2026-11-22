@@ -65,7 +65,7 @@ async fn filesystem_backend_operations() {
 #[cfg(feature = "filesystem-backend")]
 #[tokio::test]
 async fn filesystem_backend_preserves_chrono_snapshot_timestamps() {
-    use threatflux_cache::chrono::{DateTime, Duration, Utc};
+    use threatflux_cache::{SignedDuration, Timestamp};
 
     let temp_dir = TempDir::new().unwrap();
     let path = temp_dir.path().join("cache.json");
@@ -79,6 +79,14 @@ async fn filesystem_backend_preserves_chrono_snapshot_timestamps() {
             "expiry": "2024-02-29T12:35:56.123456789Z",
             "access_count": 1,
             "last_accessed": "2024-02-29T12:35:00Z"
+        }, {
+            "key": "key",
+            "value": "legacy",
+            "metadata": null,
+            "timestamp": "2016-12-31T23:59:60.123Z",
+            "expiry": null,
+            "access_count": 1,
+            "last_accessed": "+10000-01-01T00:00:00.123456Z"
         }]]]
     });
     tokio::fs::write(&path, serde_json::to_vec(&snapshot).unwrap())
@@ -90,9 +98,22 @@ async fn filesystem_backend_preserves_chrono_snapshot_timestamps() {
         .unwrap();
     let entries = backend.load().await.unwrap();
     let entry = &entries["key"][0];
-    let timestamp: DateTime<Utc> = "2024-02-29T12:34:56.123456789Z".parse().unwrap();
+    let timestamp: Timestamp = "2024-02-29T12:34:56.123456789Z".parse().unwrap();
     assert_eq!(entry.timestamp, timestamp);
-    assert_eq!(entry.expiry, Some(timestamp + Duration::minutes(1)));
+    assert_eq!(
+        entry.expiry,
+        Some(timestamp.saturating_add(SignedDuration::minutes(1)))
+    );
+
+    let legacy_entry = &entries["key"][1];
+    assert!(legacy_entry.timestamp.is_leap_second());
+    assert_eq!(legacy_entry.timestamp.nanosecond(), 123_000_000);
+    assert_eq!(
+        legacy_entry
+            .timestamp
+            .saturating_add(SignedDuration::milliseconds(877)),
+        "2017-01-01T00:00:00Z".parse().unwrap()
+    );
 
     backend.save(&entries).await.unwrap();
     let saved: serde_json::Value =

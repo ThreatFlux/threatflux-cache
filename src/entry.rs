@@ -1,9 +1,10 @@
 //! Cache entry types and metadata traits
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::hash::Hash;
+
+use crate::{SignedDuration, Timestamp};
 
 /// A cache entry containing a key-value pair with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,13 +21,13 @@ where
     /// Optional metadata associated with the entry
     pub metadata: M,
     /// Timestamp when the entry was created
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     /// Optional expiry time for TTL-based eviction
-    pub expiry: Option<DateTime<Utc>>,
+    pub expiry: Option<Timestamp>,
     /// Number of times this entry has been accessed
     pub access_count: u64,
     /// Last access timestamp
-    pub last_accessed: DateTime<Utc>,
+    pub last_accessed: Timestamp,
 }
 
 impl<K, V, M> CacheEntry<K, V, M>
@@ -49,7 +50,7 @@ where
 {
     /// Internal constructor used by `new` and `with_metadata`
     fn init(key: K, value: V, metadata: M) -> Self {
-        let now = Utc::now();
+        let now = Timestamp::now();
         Self {
             key,
             value,
@@ -67,31 +68,25 @@ where
     }
 
     /// Set expiry time for the entry
-    pub fn with_ttl(mut self, ttl: chrono::Duration) -> Self {
-        self.expiry = Some(self.timestamp.checked_add_signed(ttl).unwrap_or_else(|| {
-            if ttl < chrono::Duration::zero() {
-                DateTime::<Utc>::MIN_UTC
-            } else {
-                DateTime::<Utc>::MAX_UTC
-            }
-        }));
+    pub fn with_ttl(mut self, ttl: SignedDuration) -> Self {
+        self.expiry = Some(self.timestamp.saturating_add(ttl));
         self
     }
 
     /// Check if the entry has expired
     pub fn is_expired(&self) -> bool {
-        self.expiry.is_some_and(|expiry| Utc::now() >= expiry)
+        self.expiry.is_some_and(|expiry| Timestamp::now() >= expiry)
     }
 
     /// Update access statistics
     pub fn record_access(&mut self) {
         self.access_count = self.access_count.saturating_add(1);
-        self.last_accessed = Utc::now();
+        self.last_accessed = Timestamp::now();
     }
 
     /// Get the age of the entry
-    pub fn age(&self) -> chrono::Duration {
-        Utc::now() - self.timestamp
+    pub fn age(&self) -> SignedDuration {
+        Timestamp::now().duration_since(self.timestamp)
     }
 }
 
@@ -164,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_cache_entry_ttl() {
-        let entry = sample_entry().with_ttl(chrono::Duration::seconds(60));
+        let entry = sample_entry().with_ttl(SignedDuration::seconds(60));
 
         assert!(entry.expiry.is_some());
         assert!(!entry.is_expired());
@@ -188,7 +183,7 @@ mod tests {
     #[test]
     fn test_entry_access_tracking() {
         let mut entry = sample_entry();
-        entry.last_accessed = Utc::now() - chrono::Duration::seconds(1);
+        entry.last_accessed = Timestamp::now().saturating_add(SignedDuration::seconds(-1));
         let initial_time = entry.last_accessed;
 
         entry.record_access();
@@ -206,7 +201,7 @@ mod tests {
     #[test]
     fn test_entry_age() {
         let mut entry = sample_entry();
-        entry.timestamp = Utc::now() - chrono::Duration::seconds(1);
-        assert!(entry.age() > chrono::Duration::zero());
+        entry.timestamp = Timestamp::now().saturating_add(SignedDuration::seconds(-1));
+        assert!(entry.age() > SignedDuration::ZERO);
     }
 }

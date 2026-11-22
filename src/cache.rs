@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, StorageBackend,
+    CacheConfig, CacheEntry, CacheError, EntryMetadata, Result, SignedDuration, StorageBackend,
     eviction::{EvictionContext, EvictionStrategy},
     search::Searchable,
 };
@@ -141,24 +141,29 @@ where
             ));
         }
         if let Some(ttl) = config.default_ttl {
-            chrono::Duration::from_std(ttl).map_err(|_| {
-                CacheError::InvalidConfiguration(
-                    "default_ttl exceeds the supported timestamp range".to_string(),
-                )
-            })?;
+            Self::convert_default_ttl(ttl)?;
         }
         Ok(())
+    }
+
+    fn convert_default_ttl(ttl: std::time::Duration) -> Result<SignedDuration> {
+        // Keep rejecting the oversized default TTLs that 0.2 rejected.
+        if ttl > std::time::Duration::from_millis(i64::MAX as u64) {
+            return Err(CacheError::InvalidConfiguration(
+                "default_ttl exceeds the supported timestamp range".to_string(),
+            ));
+        }
+        Ok(SignedDuration::new(
+            ttl.as_secs() as i64,
+            ttl.subsec_nanos() as i32,
+        ))
     }
 
     fn apply_default_ttl(&self, mut entry: Entry<K, V, M>) -> Result<Entry<K, V, M>> {
         if entry.expiry.is_none()
             && let Some(ttl) = self.config.default_ttl
         {
-            let ttl = chrono::Duration::from_std(ttl).map_err(|_| {
-                CacheError::InvalidConfiguration(
-                    "default_ttl exceeds the supported timestamp range".to_string(),
-                )
-            })?;
+            let ttl = Self::convert_default_ttl(ttl)?;
             entry = entry.with_ttl(ttl);
         }
         Ok(entry)
@@ -654,7 +659,7 @@ mod tests {
         let cache = create_cache().await;
 
         let mut first = CacheEntry::new("key".to_string(), "v1".to_string());
-        first.timestamp = chrono::Utc::now() - chrono::Duration::seconds(1);
+        first.timestamp = crate::Timestamp::now().saturating_add(SignedDuration::seconds(-1));
         first.last_accessed = first.timestamp;
         cache.add_entry(first).await.unwrap();
         cache
@@ -672,7 +677,7 @@ mod tests {
 
         // Add expired entry for stats
         let expired = CacheEntry::new("expired".to_string(), "v".to_string())
-            .with_ttl(chrono::Duration::seconds(-1));
+            .with_ttl(SignedDuration::seconds(-1));
         cache.add_entry(expired).await.unwrap();
 
         let stats = cache.get_stats().await;
@@ -768,7 +773,7 @@ mod tests {
         cache
             .add_entry(
                 CacheEntry::new("key".to_string(), "value".to_string())
-                    .with_ttl(chrono::Duration::hours(1)),
+                    .with_ttl(SignedDuration::hours(1)),
             )
             .await
             .unwrap();
@@ -789,7 +794,7 @@ mod tests {
         cache
             .add_entry(
                 CacheEntry::new("expired".to_string(), "old".to_string())
-                    .with_ttl(chrono::Duration::seconds(-1)),
+                    .with_ttl(SignedDuration::seconds(-1)),
             )
             .await
             .unwrap();
@@ -818,16 +823,16 @@ mod tests {
         };
         let cache: Cache<String, String> = Cache::new(config, MemoryBackend::new()).await.unwrap();
         let key = "history".to_string();
-        let now = chrono::Utc::now();
+        let now = crate::Timestamp::now();
 
         let mut newest = CacheEntry::new(key.clone(), "newest".to_string());
         newest.timestamp = now;
         newest.last_accessed = now;
         let mut oldest = CacheEntry::new(key.clone(), "oldest".to_string());
-        oldest.timestamp = now - chrono::Duration::hours(2);
+        oldest.timestamp = now.saturating_add(SignedDuration::hours(-2));
         oldest.last_accessed = oldest.timestamp;
         let mut middle = CacheEntry::new(key.clone(), "middle".to_string());
-        middle.timestamp = now - chrono::Duration::hours(1);
+        middle.timestamp = now.saturating_add(SignedDuration::hours(-1));
         middle.last_accessed = middle.timestamp;
 
         cache.add_entry(newest).await.unwrap();

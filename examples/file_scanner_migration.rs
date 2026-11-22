@@ -6,9 +6,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use threatflux_cache::chrono::{DateTime, Utc};
 use threatflux_cache::prelude::*;
-use threatflux_cache::{CacheError, PersistenceConfig};
+use threatflux_cache::{CacheError, PersistenceConfig, Timestamp};
 
 // Replicate file-scanner's cache entry structure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,7 +17,7 @@ pub struct FileAnalysisResult {
     pub tool_name: String,
     pub tool_args: HashMap<String, serde_json::Value>,
     pub result: serde_json::Value,
-    pub timestamp: DateTime<Utc>,
+    pub timestamp: Timestamp,
     pub file_size: u64,
     pub execution_time_ms: u64,
 }
@@ -118,7 +117,7 @@ async fn run_example() -> Result<()> {
             "md5": "1a2b3c4d5e6f...",
             "file_type": "ELF 64-bit LSB executable"
         }),
-        timestamp: Utc::now(),
+        timestamp: Timestamp::now(),
         file_size: 123456,
         execution_time_ms: 45,
     };

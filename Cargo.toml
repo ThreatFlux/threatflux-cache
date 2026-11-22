@@ -29,7 +29,7 @@ include = [
 tokio = { version = "1.54.1", default-features = false, features = ["sync"] }
 async-trait = "0.1.92"
 serde = { version = "1.0.229", features = ["derive"] }
-chrono = { package = "sad-chrono", version = "0.5.1", default-features = false, features = ["now", "serde"] }
+time = { version = "0.3.55", features = ["large-dates", "macros", "parsing"] }
 thiserror = "2.0.21"
 serde_json = { version = "1.0.154", optional = true }
 

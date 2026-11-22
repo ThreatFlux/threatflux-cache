@@ -51,19 +51,21 @@ pub mod error;
 pub mod eviction;
 pub mod search;
 pub mod storage;
+mod timestamp;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
 
 // Re-export main types
 pub use cache::{AsyncCache, Cache};
-/// Date and time types used by cache entries and search queries.
-pub use chrono;
 pub use config::{CacheConfig, EvictionPolicy, PersistenceConfig};
 pub use entry::{CacheEntry, EntryMetadata};
 pub use error::{CacheError, Result};
 pub use search::{SearchQuery, Searchable};
 pub use storage::StorageBackend;
+/// Signed duration for cache entry TTLs and ages.
+pub use time::SignedDuration;
+pub use timestamp::{ParseTimestampError, Timestamp};
 
 // Re-export backend implementations
 #[cfg(feature = "filesystem-backend")]
