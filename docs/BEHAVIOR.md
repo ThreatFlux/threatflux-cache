@@ -1,6 +1,6 @@
 # Cache behavior
 
-This document defines the observable behavior of ThreatFlux Cache 0.2. It is a
+This document defines the observable behavior of ThreatFlux Cache 1.x. It is a
 guide to the implementation, not a substitute for the Rust API documentation.
 
 ## Data model
@@ -55,9 +55,9 @@ selection should provide distinct timestamps/access counts or a custom design.
 ## Expiration
 
 An entry is expired when the current UTC time reaches its `expiry` field. Set
-per-entry expiration with `CacheEntry::with_ttl`. `CacheConfig::default_ttl` is
-applied by both `put` and `add_entry` when the new entry does not already have an
-explicit expiry.
+per-entry expiration with `CacheEntry::with_ttl` and a `SignedDuration`. The
+`CacheConfig::default_ttl` setting takes a `std::time::Duration`. Both `put` and
+`add_entry` apply it when the new entry has no explicit expiry.
 
 `get` and `get_entries` discard expired entries they encounter. Every insertion
 also reclaims expired entries across the cache before enforcing capacity.
